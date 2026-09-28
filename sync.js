@@ -22,20 +22,20 @@ function syncStatus(msg, cls) {
 }
 
 // Flatten the grids + vendor list into something a spreadsheet script can apply.
+// Full state on purpose: an empty name means "clear this cell" in the workbook.
 function buildSyncPayload() {
   const guests = [];
   for (const h of st.hotels) {
     h.grid.forEach((row, ri) => {
       row.forEach((cell, ni) => {
         cell.forEach((name, slot) => {
-          if (String(name || "").trim())
-            guests.push({
-              hotel: h.name,
-              room: ri + 1,
-              night: h.nights[ni],
-              slot: slot + 1,           // 1 = Guest 1, 2 = Guest 2
-              name: String(name).trim(),
-            });
+          guests.push({
+            hotel: h.name,
+            room: ri + 1,
+            night: h.nights[ni],
+            slot: slot + 1,           // 1 = Guest 1, 2 = Guest 2
+            name: String(name || "").trim(),
+          });
         });
       });
     });
