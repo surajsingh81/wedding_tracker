@@ -13,11 +13,9 @@
     <h1>Wedding Tracker <span class="sub" id="eventName"></span></h1>
     <div class="topbar-actions">
       <span id="saveState" class="save-state"></span>
-      <button id="btnExport"  class="btn"    title="Download all data as a JSON file">Export</button>
-      <button id="btnImport"  class="btn"    title="Load a previously exported JSON file">Import</button>
-      <button id="btnPrint"   class="btn"    title="Print or save as PDF">Print</button>
-      <button id="btnReset"   class="btn danger" title="Discard your edits and reload the last Excel export">Reset</button>
-      <input type="file" id="fileInput" accept="application/json" hidden>
+      <button id="btnSync"  class="btn primary" title="Send your entries so the spreadsheet can be updated">Send to Excel</button>
+      <button id="btnPrint" class="btn"    title="Print or save as PDF">Print</button>
+      <button id="btnReset" class="btn danger"   title="Discard your entries and reload the last Excel export">Reset</button>
     </div>
   </div>
 </header>
@@ -59,11 +57,15 @@
   <section id="view-vendors" class="view" hidden>
     <p class="hint">
       <strong>One row per vendor.</strong> If a single invoice covers several services they all
-      go in that one row. Amber cells are editable.
+      go in that one row. Everything here is editable — type straight into the boxes.
     </p>
     <div class="table-scroll">
       <table class="grid" id="vendorTable"></table>
     </div>
+    <div class="vendor-actions">
+      <button id="btnAddVendor" class="btn">+ Add vendor</button>
+    </div>
+    <h2>Summary</h2>
     <div class="cards" id="vendorSummary"></div>
   </section>
 
@@ -77,11 +79,14 @@
 </main>
 
 <footer class="wrap foot">
-  <p>Static page — nothing is sent anywhere. Your edits live in this browser only.
-     Use <strong>Export</strong> to save a copy, and <strong>Import</strong> to load one back.</p>
-  <p class="dim">Figures generated from the workbook on <span id="genDate"></span>.</p>
+  <p>Everything you type is saved in this browser as you go, and stays on this device.
+     Press <strong>Send to Excel</strong> when you want your entries carried into the
+     spreadsheet. <strong>Reset</strong> throws them away and goes back to the last export.</p>
+  <p class="dim" id="syncStatus">Figures generated from the workbook on <span id="genDate"></span>.</p>
 </footer>
 
-<script src="app.js"></script>
+<script src="sync-config.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

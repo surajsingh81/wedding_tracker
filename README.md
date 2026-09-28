@@ -37,16 +37,42 @@ If you only need people to *read* the status, option 2 is the honest one.
 
 ## How edits work
 
-Everything is saved in the visitor's own browser (`localStorage`). Nothing is
-uploaded anywhere — there is no backend. So:
+Everything you type is saved in this browser as you go (`localStorage`) and stays
+on this device. The toolbar has three buttons:
 
-- Guest names and payment edits stay **on that device**.
-- **Export** downloads a JSON snapshot; send that file to whoever maintains it.
-- **Import** loads a snapshot back.
-- **Reset** discards local edits and reloads the last Excel export.
+- **Send to Excel** — posts your entries to a small relay so they can be carried
+  into the spreadsheet (see below).
+- **Print** — prints the current view (handy for the front-desk room grid).
+- **Reset** — discards your entries on this device and reloads the last Excel export.
 
-If several people must edit the *same* shared copy, this needs a real backend
-(Google Sheets, Airtable, Supabase, a small server) — a static page cannot do it.
+There is deliberately **no Export/Import**: the page is not meant to move data
+around by hand. If several people must edit the *same* shared copy, the relay
+below is the way to do it.
+
+## Getting entries into Excel
+
+A static page cannot write to a local `.xlsx` file, and GitHub Pages is
+read-only. So "Send to Excel" POSTs a JSON payload to a tiny endpoint, and that
+endpoint forwards it to the workbook. Two supported ways:
+
+1. **Email relay (recommended, matches "one email")** — point the page at a form
+   service (Formspree, Web3Forms, EmailJS) or a Google Apps Script web app that
+   emails the payload to your inbox. Then a scheduled OpenWork Automation reads
+   that email, parses the JSON, and patches
+   `Wedding_Expense_Tracker_Dec2026.xlsx` (with a timestamped backup first).
+2. **Google Sheets bridge** — the endpoint appends the payload to a Google Sheet;
+   the same Automation reads the sheet and patches the workbook.
+
+To switch sending on, put the endpoint URL in `sync-config.js`:
+
+```js
+window.SYNC_ENDPOINT = "https://your-relay.example/accept";
+window.SYNC_EMAIL   = "you@example.com";
+```
+
+The payload shape is documented in `sync.js` (`buildSyncPayload()`): a flat list
+of guest entries (hotel, room, night, slot, name) plus the full vendor list, with
+`row: null` / `isNew: true` marking vendors that should be appended as new rows.
 
 ## Refreshing from the workbook
 

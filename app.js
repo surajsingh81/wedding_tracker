@@ -155,41 +155,44 @@ function renderRooms() {
   }).join("");
 }
 
+const VCOLS = [
+  ["name",       "Vendor",    "text"],
+  ["contact",    "Contact",   "text"],
+  ["phone",      "Phone",     "tel"],
+  ["whatsapp",   "WhatsApp",  "text"],
+  ["event",      "Event",     "text"],
+  ["eventDate",  "Event date","text"],
+  ["quoted",     "Quoted",    "number"],
+  ["paid",       "Paid",      "number"],
+  ["paymentMode","Pay mode",  "text"],
+  ["ref",        "UTR / Ref", "text"],
+  ["paidOn",     "Paid on",   "text"],
+  ["address",    "Address",   "text"],
+  ["notes",      "Notes",     "text"],
+];
+
 function renderVendors() {
-  const cols = [["name", "Vendor"], ["contact", "Contact"], ["phone", "Phone"],
-                ["event", "Event"], ["quoted", "Quoted"], ["paid", "Paid"], ["__bal", "Balance"],
-                ["__st", "Status"]];
   $("#vendorTable").innerHTML =
-    `<thead><tr>${cols.map(([k, l]) =>
-      `<th class="${["quoted", "paid", "__bal"].includes(k) ? "num" : ""}">${l}</th>`).join("")}</tr></thead>
+    `<thead><tr>${VCOLS.map(([k, l, t]) =>
+      `<th class="${t === "number" ? "num" : ""}">${l}</th>`).join("")}<th></th></tr></thead>
      <tbody>${st.vendors.map((v, i) => {
        const s = vendorStatus(v);
        return `<tr>
-        <td class="sticky-col"><strong>${esc(v.name)}</strong>
-          ${v.notes ? `<div class="dim">${esc(v.notes.slice(0, 90))}${v.notes.length > 90 ? "…" : ""}</div>` : ""}</td>
-        <td>${esc(v.contact) || '<span class="dim">—</span>'}</td>
-        <td>${v.phone ? `<a href="tel:${esc(v.phone)}">${esc(v.phone)}</a>` : '<span class="dim">—</span>'}
-          ${v.whatsapp ? `<div class="dim">WA ${esc(v.whatsapp)}</div>` : ""}</td>
-        <td>${esc(v.event) || '<span class="dim">—</span>'}${v.eventDate ? `<div class="dim">${esc(v.eventDate)}</div>` : ""}</td>
-        <td class="num"><input class="cell" type="number" min="0" step="500" value="${v.quoted}"
-            data-v="${i}" data-f="quoted" aria-label="Amount quoted for ${esc(v.name)}"></td>
-        <td class="num"><input class="cell" type="number" min="0" step="500" value="${v.paid}"
-            data-v="${i}" data-f="paid" aria-label="Amount paid to ${esc(v.name)}"></td>
-        <td class="num">${s.bal === undefined ? '<span class="dim">—</span>' : inr(s.bal)}</td>
-        <td class="num"><span class="pill ${s.cls}">${s.txt}</span></td>
-      </tr>`;
+         <td class="sticky-col"><input class="cell strong" type="text" value="${esc(v.name)}"
+             data-v="${i}" data-f="name" aria-label="Vendor name"></td>
+         ${VCOLS.slice(1).map(([k, l, t]) => `<td class="${t === "number" ? "num" : ""}">
+            <input class="cell" type="${t === "number" ? "number" : "text"}"
+                   ${t === "number" ? 'min="0" step="500"' : ""}
+                   value="${esc(v[k])}" data-v="${i}" data-f="${k}"
+                   aria-label="${l} for vendor ${i + 1}"></td>`).join("")}
+         <td class="num vstat"><span class="pill ${s.cls}">${s.txt}</span>
+             ${s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : ""}</td>
+         <td class="num"><button class="btn row-del" data-del="${i}"
+             title="Remove this vendor" aria-label="Remove vendor ${i + 1}">&times;</button></td>
+       </tr>`;
      }).join("")}</tbody>`;
 
-  const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
-  const p = st.vendors.reduce((a, v) => a + (v.paid  || 0), 0);
-  const byCls = c => st.vendors.filter(v => vendorStatus(v).cls === c).length;
-  $("#vendorSummary").innerHTML = [
-    ["Total quoted", inr(q), ""],
-    ["Total paid", inr(p), "ok"],
-    ["Outstanding", inr(q - p), q - p > 0 ? "warn" : "ok"],
-    ["Pending", byCls("warn"), ""], ["Paid", byCls("ok"), ""], ["Not quoted", byCls("none"), ""],
-  ].map(([k, v, c]) =>
-    `<div class="card ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  renderVendorSummary();
 }
 
 function renderInvoices() {
@@ -221,6 +224,44 @@ function renderInvoices() {
 }
 
 /* ------------------------------------------------------------------- events */
+const VNUM = new Set(["quoted", "paid"]);
+
+// update one vendor's status pill + balance in place (keeps the caret where it is)
+function refreshVendorRow(i) {
+  const s = vendorStatus(st.vendors[i]);
+  const td = $(`#vendorTable tbody tr:nth-child(${i + 1}) td.vstat`);
+  if (td) td.innerHTML = `<span class="pill ${s.cls}">${s.txt}</span>` +
+    (s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : "");
+  renderVendorSummary();
+}
+
+function renderVendorSummary() {
+  const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
+  const p = st.vendors.reduce((a, v) => a + (v.paid  || 0), 0);
+  const byCls = c => st.vendors.filter(v => vendorStatus(v).cls === c).length;
+  $("#vendorSummary").innerHTML = [
+    ["Total quoted", inr(q), ""],
+    ["Total paid", inr(p), "ok"],
+    ["Outstanding", inr(q - p), q - p > 0 ? "warn" : "ok"],
+    ["Pending", byCls("warn"), ""], ["Paid", byCls("ok"), ""], ["Not quoted", byCls("none"), ""],
+  ].map(([k, v, c]) =>
+    `<div class="card ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function addVendor() {
+  st.vendors.push({
+    name: "", contact: "", phone: "", whatsapp: "", event: "", eventDate: "",
+    quoted: "", paid: "", paymentMode: "", ref: "", paidOn: "",
+    address: "", notes: "", row: null, isNew: true,
+  });
+  save(); renderAll();
+  const rows = $$("#vendorTable tbody tr");
+  const last = rows[rows.length - 1];
+  last?.querySelector("input")?.focus();
+  last?.scrollIntoView({ block: "center", behavior: "smooth" });
+  flash("New vendor row added");
+}
+
 function wire() {
   document.addEventListener("input", e => {
     const t = e.target;
@@ -228,19 +269,30 @@ function wire() {
       const h = st.hotels.find(x => x.id === t.dataset.h);
       h.grid[+t.dataset.r][+t.dataset.n][+t.dataset.g] = t.value;
       save(); renderOverview();
-      // repaint only this panel's summary rows, keeping the caret in place
-      const tr = t.closest("tr");
-      tr.classList.toggle("filled", !!(t.value || t.closest(".gcell").querySelector("input:not([value])")?.value));
+      // repaint only this cell's row state, keeping the caret in place
+      const td = t.closest("td");
+      const other = $$("input", t.closest(".gcell")).find(i => i !== t);
+      td.classList.toggle("filled", !!(t.value || other.value));
       refreshRows(t.dataset.h);
     }
     if (t.matches("input.cell")) {
-      const v = st.vendors[+t.dataset.v];
-      v[t.dataset.f] = t.value === "" ? "" : Number(t.value);
-      save(); renderOverview(); renderVendors();
-      const again = $(`input.cell[data-v="${t.dataset.v}"][data-f="${t.dataset.f}"]`);
-      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      const i = +t.dataset.v, f = t.dataset.f;
+      st.vendors[i][f] = VNUM.has(f) ? (t.value === "" ? "" : Number(t.value)) : t.value;
+      save(); renderOverview(); refreshVendorRow(i);
     }
   });
+
+  // remove a vendor row
+  $("#vendorTable").addEventListener("click", e => {
+    const b = e.target.closest("[data-del]");
+    if (!b) return;
+    const v = st.vendors[+b.dataset.del];
+    if (!confirm(`Remove "${(v.name || "untitled").trim()}" from the vendor list?`)) return;
+    st.vendors.splice(+b.dataset.del, 1);
+    save(); renderAll(); flash("Vendor removed");
+  });
+
+  $("#btnAddVendor").onclick = addVendor;
 
   // refresh Filled/Needed/Status rows for one hotel without losing focus
   function refreshRows(hid) {
@@ -262,26 +314,10 @@ function wire() {
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
 
-  $("#btnExport").onclick = () => {
-    const blob = new Blob([JSON.stringify(st, null, 1)], { type: "application/json" });
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(blob),
-      download: `wedding-tracker-${new Date().toISOString().slice(0, 10)}.json`,
-    });
-    a.click(); URL.revokeObjectURL(a.href);
-  };
-  $("#btnImport").onclick = () => $("#fileInput").click();
-  $("#fileInput").onchange = e => {
-    const f = e.target.files[0]; if (!f) return;
-    const fr = new FileReader();
-    fr.onload = () => {
-      try { st = JSON.parse(fr.result); save(); renderAll(); flash("Imported"); }
-      catch { flash("That file could not be read"); }
-    };
-    fr.readAsText(f);
-    e.target.value = "";
-  };
   $("#btnPrint").onclick = () => window.print();
+
+  $("#btnSync").onclick = syncNow;
+
   $("#btnReset").onclick = () => {
     if (!confirm("Discard your edits on this device and reload the last Excel export?")) return;
     localStorage.removeItem(KEY); st = JSON.parse(JSON.stringify(base)); renderAll(); flash("Reset");

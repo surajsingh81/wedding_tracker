@@ -125,3 +125,24 @@ details.inv[open]>summary:after{content:"▴"}
   .panel,.card,details.inv{break-inside:avoid}
   details.inv{page-break-inside:avoid}
 }
+
+/* ---------------------------------------------------------- vendor editing */
+.vendor-actions { margin: 14px 0 4px; }
+.row-del {
+  padding: 2px 9px; font-size: 17px; line-height: 1.1;
+  color: #b3261e; border-color: #f0c4c0; background: #fdf1f0;
+}
+.row-del:hover { background: #b3261e; color: #fff; border-color: #b3261e; }
+td.vstat { white-space: nowrap; }
+input.cell {
+  width: 100%; min-width: 90px; border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 8px; font: inherit; font-size: 14px;
+  background: #fffdf7; color: inherit;
+}
+input.cell:focus { outline: 2px solid var(--brand); outline-offset: 1px; background: #fff; }
+input.cell.strong { font-weight: 600; min-width: 150px; }
+#vendorTable th, #vendorTable td { white-space: nowrap; }
+#vendorTable input.cell[data-f="notes"], #vendorTable input.cell[data-f="address"] { min-width: 190px; }
+#syncStatus.msg-ok    { color: #1c6b3a; }
+#syncStatus.msg-warn  { color: #a35a00; }
+#syncStatus.msg-error { color: #b3261e; }
