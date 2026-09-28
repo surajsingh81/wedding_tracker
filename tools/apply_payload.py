@@ -125,8 +125,8 @@ def main():
         if not (1 <= room <= rooms) or slot not in (1, 2):
             skipped.append(f"guest: out of range {sheet.title} room {room} slot {slot}")
             continue
-        target = g1a + room - 1 if slot == 1 else g2a + room - 1
-        sheet[f"{col}{target}"] = clean(g.get("name")) or None
+        cell_row = g1a + room - 1 if slot == 1 else g2a + room - 1
+        sheet[f"{col}{cell_row}"] = clean(g.get("name")) or None
         applied_g += 1
 
     # ---------------------------------------------------------------- vendors
