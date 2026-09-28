@@ -8,6 +8,31 @@
 </head>
 <body>
 
+<!-- ============================================================ LOCK SCREEN -->
+<div id="lockScreen" class="lock" hidden>
+  <form id="lockForm" class="lock-card">
+    <h1>Wedding Tracker</h1>
+    <p class="dim">This page is private. Enter the password to continue.</p>
+    <input id="lockPass" type="password" placeholder="Password" autocomplete="current-password" autofocus>
+    <button type="submit" class="btn primary">Unlock</button>
+    <p id="lockErr" class="lock-err"></p>
+  </form>
+</div>
+
+<!-- ==================================================== SAVE CONFIRM MODAL -->
+<div id="saveLock" class="lock" hidden>
+  <form id="saveLockForm" class="lock-card">
+    <h1>Confirm to send</h1>
+    <p class="dim">Enter the password to send your entries to Excel.</p>
+    <input id="saveLockPass" type="password" placeholder="Password" autocomplete="current-password">
+    <div class="lock-row">
+      <button type="submit" class="btn primary">Send</button>
+      <button type="button" id="saveLockCancel" class="btn">Cancel</button>
+    </div>
+    <p id="saveLockErr" class="lock-err"></p>
+  </form>
+</div>
+
 <header class="topbar">
   <div class="wrap">
     <h1>Wedding Tracker <span class="sub" id="eventName"></span></h1>
@@ -86,6 +111,7 @@
 </footer>
 
 <script src="sync-config.js"></script>
+  <script src="auth.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>

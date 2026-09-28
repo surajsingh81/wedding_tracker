@@ -51,6 +51,25 @@ There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand. If several people must edit the *same* shared copy, the relay
 below is the way to do it.
 
+## Password
+
+The page is behind a password gate, and **Send to Excel** asks for the password
+again before saving. Default password: `wedding2026`.
+
+> ⚠️ This is a *speed bump*, not real security. GitHub Pages is a static host, so
+> the page, the data and the check all download to the visitor's browser. Anyone
+> determined can still fetch `data.json` directly or read `auth.js`. It keeps out
+> casual visitors who have the link. For real access control you would need
+> Cloudflare Access or a small backend.
+
+To change the password:
+
+```bash
+echo -n "newpassword" | shasum -a 256
+```
+
+Paste the hash into `AUTH.hash` in `auth.js`, then commit and push.
+
 ## Getting entries into Excel
 
 A static page cannot write to a local `.xlsx` file, and GitHub Pages is

@@ -60,6 +60,7 @@ function buildSyncPayload() {
 }
 
 async function syncNow() {
+  if (!(await AuthGate.confirmSave())) return;   // password required to save
   const url = (window.SYNC_ENDPOINT || "").trim();
   const email = (window.SYNC_EMAIL || "").trim();
   const payload = buildSyncPayload();
