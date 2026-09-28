@@ -17,23 +17,23 @@ No build step, no dependencies, no server. It is plain `index.html` + `styles.cs
 | `data.json` | **The data**, exported from the workbook |
 | `Vendor PDFs/` | The invoice PDF the page links to |
 
-## ⚠️ Before you publish this publicly
+## ⚠️ Public vs private data
 
-`data.json` contains **guest names, full addresses, phone numbers and payment
-amounts**. A GitHub Pages site is public to anyone with the link, and every commit
-stays in the repository history forever.
+The deployed site is **public**. The repo therefore contains `data.public.json` —
+a redacted copy that keeps the room grids, guest names and hotel notes (the page
+needs them) but strips vendor phones, WhatsApp, emails, addresses, payment
+amounts, UTRs, notes and the invoice detail.
 
-Before pushing, decide how you want to handle that:
+The **full** export is `data.json`, which is gitignored and never pushed. It is
+generated locally by the exporter and used for the Excel sync.
 
-1. **Publish as-is** — fine only if you are genuinely comfortable with these
-   details being public and permanent.
-2. **Publish a redacted copy** — keep `data.json` out of the public repo, or strip
-   the address/phone/payment fields, and share the real file privately.
-3. **Add a password gate** — a static site cannot really keep a secret, because
-   the page and its data download before any password check. Client-side
-   obfuscation is a speed bump, not security.
+- `tools/export_site_data.py` → writes the full `data.json` (local only).
+- `tools/make_public_data.py` → derives `data.public.json` from it (committed).
+- `app.js` loads `data.public.json` when `PUBLIC_MODE` is true (deployed) and
+  `data.json` when false (local full preview).
 
-If you only need people to *read* the status, option 2 is the honest one.
+If you ever want the full data public, delete the redaction and push `data.json`
+— but remember it is permanent once pushed.
 
 ## How edits work
 
@@ -77,10 +77,12 @@ of guest entries (hotel, room, night, slot, name) plus the full vendor list, wit
 ## Refreshing from the workbook
 
 `data.json` is generated from the Excel file, so after changing the spreadsheet
-re-run the exporter and commit the result:
+re-run the exporter and the public copy, then commit the result:
 
 ```bash
-python3 tools/export_site_data.py
+python3 tools/export_site_data.py     # full data.json (local only)
+python3 tools/make_public_data.py     # redacted data.public.json (committed)
+git add data.public.json && git commit -m "refresh from workbook" && git push
 ```
 
 It reads the workbook by **label** (`Check-in`, `Total rooms`, `Vendor / Category`,
