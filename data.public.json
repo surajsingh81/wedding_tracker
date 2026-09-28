@@ -487,19 +487,19 @@
    "row": 4,
    "name": "Band / Baraat & DJ & Sound System",
    "contact": "Deeplaxmie Events",
-   "phone": "8605622211",
+   "phone": "",
    "whatsapp": "",
    "email": "",
-   "address": "Raviwar Peth, Moti Chowk, Pune 411002",
+   "address": "",
    "event": "Baraat",
    "eventDate": "11-Dec-2026",
-   "quoted": 41000,
-   "paid": 11000,
+   "quoted": "",
+   "paid": "",
    "paymentMode": "",
-   "ref": "Invoice 284",
+   "ref": "",
    "paidOn": "",
-   "notes": "11-Dec-2026, 7:00-10:00 PM.  Single combined row for the whole invoice: DJ mixer + operator, 4 top & 2 bass speakers, mic, paar lights, name board both sides, driver, fuel, dance floor, light umbrella setup, generator backup, Punjabi dhol x2.  Do not add separate lighting, DJ or generator rows - all of it is inside the 41,000.  See the itemised reference further down.",
-   "pdf": "Vendor%20PDFs/Baraat-DJ-Invoice-284-11Dec2026.pdf"
+   "notes": "",
+   "pdf": ""
   },
   {
    "row": 5,
@@ -739,14 +739,14 @@
    "row": 18,
    "name": "Hotel - Nirmal's Executive",
    "contact": "Nirmal Reception",
-   "phone": "+91 93091 74167",
-   "whatsapp": "+91 93091 74167",
+   "phone": "",
+   "whatsapp": "",
    "email": "",
-   "address": "Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India",
+   "address": "",
    "event": "Accommodation 08-14 Dec",
    "eventDate": "",
-   "quoted": 84000,
-   "paid": 25000,
+   "quoted": "",
+   "paid": "",
    "paymentMode": "",
    "ref": "",
    "paidOn": "",
@@ -754,140 +754,5 @@
    "pdf": ""
   }
  ],
- "vendorDetails": {
-  "Deeplaxmie Events": {
-   "kind": "invoice",
-   "title": "BAND / BARAAT — INVOICE 284 BREAKDOWN (Deeplaxmie Events, 11-Dec-2026, 7:00-10:00 PM)",
-   "sub": "Band / Baraat & DJ & Sound System  |  11-Dec-2026, 7:00-10:00 PM  |  Raviwar Peth, Moti Chowk, Pune 411002  |  8605622211",
-   "caption": "REFERENCE ONLY. These figures do not feed the Vendors sheet. The whole invoice is tracked as ONE vendor row (Vendors row 5) so nothing is double counted.",
-   "items": [
-    [
-     "Baraat DJ Truck",
-     1,
-     25000,
-     25000
-    ],
-    [
-     "Light Chatri",
-     8,
-     2000,
-     16000
-    ],
-    [
-     "Punjabhi Dhol",
-     2,
-     2000,
-     4000
-    ]
-   ],
-   "totals": [
-    [
-     "Sub Total",
-     45000
-    ],
-    [
-     "Less: Discounts",
-     -4000
-    ],
-    [
-     "Total",
-     41000
-    ],
-    [
-     "Advance paid",
-     11000
-    ],
-    [
-     "Balance due",
-     30000
-    ]
-   ],
-   "terms": "Invoice 284 terms: advance is non-refundable, balance must clear before or on event day prior to setup, crowd damage is chargeable, extra hours are billed extra.",
-   "pdf": "Vendor%20PDFs/Baraat-DJ-Invoice-284-11Dec2026.pdf"
-  },
-  "Nirmal's Executive": {
-   "kind": "hotel",
-   "title": "NIRMAL'S EXECUTIVE — HOTEL COST DETAIL",
-   "sub": "+91 93091 74167  |  Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India",
-   "caption": "REFERENCE / DETAIL VIEW. The hotel is tracked as ONE row on the Vendors sheet (row 19) and its 84,000 / 25,000 are included in the Vendors TOTAL. This sheet only breaks the cost down — it does not add to the totals a second time.",
-   "booking": [
-    [
-     "Check-in",
-     "08-Dec-2026"
-    ],
-    [
-     "Check-out",
-     "14-Dec-2026"
-    ],
-    [
-     "Total rooms",
-     10
-    ],
-    [
-     "Total room-nights",
-     37
-    ]
-   ],
-   "plan": [
-    [
-     "08-Dec",
-     2,
-     2
-    ],
-    [
-     "09-Dec",
-     3,
-     3
-    ],
-    [
-     "10-Dec",
-     10,
-     10
-    ],
-    [
-     "11-Dec",
-     10,
-     10
-    ],
-    [
-     "12-Dec",
-     10,
-     10
-    ],
-    [
-     "13-Dec",
-     2,
-     2
-    ]
-   ],
-   "cost": [
-    [
-     "Amount quoted",
-     84000
-    ],
-    [
-     "Amount paid",
-     25000
-    ],
-    [
-     "Balance due",
-     ""
-    ]
-   ],
-   "contact": [
-    [
-     "Google rating",
-     "4,792 reviews"
-    ],
-    [
-     "Phone",
-     "+91 93091 74167"
-    ],
-    [
-     "Address",
-     "Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India"
-    ]
-   ]
-  }
- }
+ "vendorDetails": {}
 }

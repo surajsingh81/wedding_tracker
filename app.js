@@ -326,7 +326,7 @@ function wire() {
 
 /* --------------------------------------------------------------------- boot */
 (async function () {
-  const res = await fetch("data.json", { cache: "no-cache" });
+  const res = await fetch(window.PUBLIC_MODE ? "data.public.json" : "data.json", { cache: "no-cache" });
   base = await res.json();
   st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
   $("#eventName").textContent = base.event;
