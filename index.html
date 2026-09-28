@@ -8,17 +8,6 @@
 </head>
 <body>
 
-<!-- ============================================================ LOCK SCREEN -->
-<div id="lockScreen" class="lock" hidden>
-  <form id="lockForm" class="lock-card">
-    <h1>Wedding Tracker</h1>
-    <p class="dim">This page is private. Enter the password to continue.</p>
-    <input id="lockPass" type="password" placeholder="Password" autocomplete="current-password" autofocus>
-    <button type="submit" class="btn primary">Unlock</button>
-    <p id="lockErr" class="lock-err"></p>
-  </form>
-</div>
-
 <!-- ==================================================== SAVE CONFIRM MODAL -->
 <div id="saveLock" class="lock" hidden>
   <form id="saveLockForm" class="lock-card">
@@ -37,6 +26,8 @@
   <div class="wrap">
     <h1>Wedding Tracker <span class="sub" id="eventName"></span></h1>
     <div class="topbar-actions">
+      <input id="yourName" class="name-input" placeholder="Your name"
+             title="Your name is recorded with every change you make" autocomplete="name">
       <span id="saveState" class="save-state"></span>
       <button id="btnSync"  class="btn primary" title="Send your entries so the spreadsheet can be updated">Send to Excel</button>
       <button id="btnPrint" class="btn"    title="Print or save as PDF">Print</button>
@@ -50,6 +41,7 @@
   <button class="tab" data-view="rooms">Rooms &amp; Guests</button>
   <button class="tab" data-view="vendors">Vendors &amp; Payments</button>
   <button class="tab" data-view="invoices">Invoices</button>
+  <button class="tab" data-view="changes">Changes</button>
 </nav>
 
 <main class="wrap">
@@ -99,6 +91,14 @@
     <p class="hint">Extracted invoice detail, kept separately so it is never added to the
        totals a second time.</p>
     <div id="invoicePanels"></div>
+  </section>
+
+  <!-- ============================================================= CHANGES -->
+  <section id="view-changes" class="view" hidden>
+    <p class="hint">Every change made on this device, with the person who made it. Type your
+       name in the box at the top first. Changes are stored in this browser and travel to the
+       spreadsheet when you press <strong>Send to Excel</strong>.</p>
+    <div id="changesList"></div>
   </section>
 
 </main>

@@ -1,10 +1,10 @@
 /* ============================================================================
-   auth.js — a simple client-side gate.
+   auth.js — password for EDITING only (Send to Excel). Viewing is open.
    ----------------------------------------------------------------------------
    IMPORTANT: this is NOT real security. GitHub Pages is a static host, so the
    page, the data and this check all download to the visitor's browser. Anyone
-   who knows how can bypass it or fetch data.json directly. It only keeps out
-   casual visitors who have the link.
+   who knows how can bypass it or fetch data.json directly. It only stops
+   casual visitors from pushing changes to the spreadsheet.
 
    To change the password:
      1. pick a new one, e.g.  echo -n "newpass" | shasum -a 256
@@ -14,7 +14,6 @@
 
 const AUTH = {
   hash: "80a5b9d6f893cb40365d935d61ae35d4674b2f182bf7251244b627c4365eda31", // "wedding2026"
-  key: "wedding-auth-v1",
 };
 
 async function sha256hex(str) {
@@ -23,25 +22,10 @@ async function sha256hex(str) {
 }
 
 const AuthGate = {
-  isAuthed() {
-    return sessionStorage.getItem(AUTH.key) === "1";
-  },
-  show() {
-    const el = $("#lockScreen");
-    if (el) el.hidden = false;
-  },
   async checkPassword(pw) {
     return (await sha256hex(pw)) === AUTH.hash;
   },
-  async unlock(pw) {
-    if (await this.checkPassword(pw)) {
-      sessionStorage.setItem(AUTH.key, "1");
-      location.reload();
-      return true;
-    }
-    return false;
-  },
-  // Ask for the password again before a save action (Send to Excel).
+  // Ask for the password before a save action (Send to Excel).
   confirmSave() {
     return new Promise(resolve => {
       const el = $("#saveLock");
@@ -67,17 +51,3 @@ const AuthGate = {
     });
   },
 };
-
-document.addEventListener("DOMContentLoaded", () => {
-  const form = $("#lockForm");
-  if (!form) return;
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const input = $("#lockPass");
-    const err = $("#lockErr");
-    if (await AuthGate.unlock(input.value)) return;
-    err.textContent = "Wrong password — try again.";
-    input.value = "";
-    input.focus();
-  });
-});

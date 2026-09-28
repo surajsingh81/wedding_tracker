@@ -53,14 +53,15 @@ below is the way to do it.
 
 ## Password
 
-The page is behind a password gate, and **Send to Excel** asks for the password
-again before saving. Default password: `wedding2026`.
+The page is **open for viewing** — no login. The password is only asked when
+**saving**: pressing **Send to Excel** prompts for it before anything leaves the
+device. Default password: `wedding2026`.
 
 > ⚠️ This is a *speed bump*, not real security. GitHub Pages is a static host, so
 > the page, the data and the check all download to the visitor's browser. Anyone
-> determined can still fetch `data.json` directly or read `auth.js`. It keeps out
-> casual visitors who have the link. For real access control you would need
-> Cloudflare Access or a small backend.
+> determined can still fetch `data.json` directly or read `auth.js`. It stops
+> casual visitors from pushing changes to the spreadsheet. For real access
+> control you would need Cloudflare Access or a small backend.
 
 To change the password:
 
@@ -69,6 +70,17 @@ echo -n "newpassword" | shasum -a 256
 ```
 
 Paste the hash into `AUTH.hash` in `auth.js`, then commit and push.
+
+## Who changed what
+
+Type your name in the **Your name** box at the top — it is remembered on that
+device. Every edit (guest names, vendor fields, add/remove vendor, reset, send)
+is recorded with your name and a timestamp, and shown on the **Changes** tab.
+
+The log lives in that browser's `localStorage` (last 300 entries), so each
+device shows its own history. When you press **Send to Excel**, the payload
+carries `author` and the full `changes` list along with the data, so the
+spreadsheet side can keep the same record.
 
 ## Getting entries into Excel
 

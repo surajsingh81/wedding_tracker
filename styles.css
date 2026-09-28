@@ -168,3 +168,12 @@ input.cell.strong { font-weight: 600; min-width: 150px; }
 .lock-err { color: #b3261e; min-height: 1.2em; margin: 0; font-size: 14px; }
 .lock-row { display: flex; gap: 8px; }
 .lock-row .btn { flex: 1; }
+
+/* ------------------------------------------------------------- name input */
+.name-input {
+  font: inherit; font-size: 14px; padding: 6px 10px; width: 130px;
+  border: 1px solid var(--line, #e2ddd2); border-radius: 9px;
+  background: #fff; color: inherit;
+}
+.name-input:focus { outline: 2px solid var(--brand, #7a4a2b); }
+.nowrap { white-space: nowrap; }

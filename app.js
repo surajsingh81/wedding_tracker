@@ -2,6 +2,8 @@
    A fresh data.json (exported from the workbook) is the baseline to reset to. */
 
 const KEY = "wedding-tracker-v1";
+const CHANGES_KEY = "tracker-changes-v1";
+const NAME_KEY = "tracker-name-v1";
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -46,12 +48,44 @@ function flash(msg) {
   flashT = setTimeout(() => el.textContent = "Auto-saved", 2500);
 }
 
+/* ------------------------------------------------------------- change log */
+function getChanges() {
+  try { return JSON.parse(localStorage.getItem(CHANGES_KEY) || "[]"); }
+  catch { return []; }
+}
+function recordChange(what) {
+  const who = ($("#yourName")?.value || "").trim() || "Anonymous";
+  const log = getChanges();
+  log.push({ t: new Date().toISOString(), who, what });
+  if (log.length > 300) log.splice(0, log.length - 300);
+  localStorage.setItem(CHANGES_KEY, JSON.stringify(log));
+  renderChanges();
+}
+function renderChanges() {
+  const log = getChanges();
+  const el = $("#changesList");
+  if (!el) return;
+  if (!log.length) {
+    el.innerHTML = `<p class="dim">No changes recorded on this device yet. Edit a guest name or
+      a vendor field, then check back here.</p>`;
+    return;
+  }
+  el.innerHTML = `<div class="table-scroll"><table class="grid">
+    <thead><tr><th>When</th><th>Who</th><th>What changed</th></tr></thead>
+    <tbody>${log.slice().reverse().map(c => `
+      <tr><td class="num nowrap">${esc(new Date(c.t).toLocaleString([], {
+        day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</td>
+        <td><b>${esc(c.who)}</b></td><td>${esc(c.what)}</td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+
 /* -------------------------------------------------------------------- render */
 function renderAll() {
   renderOverview();
   renderRooms();
   renderVendors();
   renderInvoices();
+  renderChanges();
 }
 
 function renderOverview() {
@@ -255,11 +289,40 @@ function addVendor() {
     address: "", notes: "", row: null, isNew: true,
   });
   save(); renderAll();
+  recordChange("Added a new vendor row");
   const rows = $$("#vendorTable tbody tr");
   const last = rows[rows.length - 1];
   last?.querySelector("input")?.focus();
   last?.scrollIntoView({ block: "center", behavior: "smooth" });
   flash("New vendor row added");
+}
+
+// last value seen per editable cell, so the change log shows old -> new
+const lastVal = new Map();
+function cellKey(t) { return t.dataset.h ? `${t.dataset.h}-${t.dataset.r}-${t.dataset.n}-${t.dataset.g}` : `v-${t.dataset.v}-${t.dataset.f}`; }
+function baseVal(t) {
+  if (t.dataset.h) {
+    const h = base.hotels.find(x => x.id === t.dataset.h);
+    return h?.grid?.[+t.dataset.r]?.[+t.dataset.n]?.[+t.dataset.g] ?? "";
+  }
+  return base.vendors?.[+t.dataset.v]?.[t.dataset.f] ?? "";
+}
+function describeCell(t) {
+  if (t.dataset.h) {
+    const h = st.hotels.find(x => x.id === t.dataset.h);
+    return `Guest ${+t.dataset.g + 1}, Room ${+t.dataset.r + 1}, ${h.nights[+t.dataset.n]} (${h.name})`;
+  }
+  const v = st.vendors[+t.dataset.v];
+  const label = VCOLS.find(([k]) => k === t.dataset.f)?.[1] || t.dataset.f;
+  return `${label} of "${(v?.name || "untitled").trim()}"`;
+}
+function recordEdit(t) {
+  const key = cellKey(t);
+  const old = lastVal.has(key) ? lastVal.get(key) : baseVal(t);
+  const now = t.value;
+  if (String(old) === String(now)) return;
+  lastVal.set(key, now);
+  recordChange(`${describeCell(t)}: ${old === "" ? "(empty)" : `"${old}"`} → ${now === "" ? "(empty)" : `"${now}"`}`);
 }
 
 function wire() {
@@ -282,6 +345,17 @@ function wire() {
     }
   });
 
+  // record finished edits (blur / Enter) in the change log
+  document.addEventListener("change", e => {
+    const t = e.target;
+    if (t.matches(".gcell input") || t.matches("input.cell")) recordEdit(t);
+  });
+
+  // remember the person's name on this device
+  $("#yourName").addEventListener("input", e => {
+    localStorage.setItem(NAME_KEY, e.target.value);
+  });
+
   // remove a vendor row
   $("#vendorTable").addEventListener("click", e => {
     const b = e.target.closest("[data-del]");
@@ -290,6 +364,7 @@ function wire() {
     if (!confirm(`Remove "${(v.name || "untitled").trim()}" from the vendor list?`)) return;
     st.vendors.splice(+b.dataset.del, 1);
     save(); renderAll(); flash("Vendor removed");
+    recordChange(`Removed vendor "${(v.name || "untitled").trim()}"`);
   });
 
   $("#btnAddVendor").onclick = addVendor;
@@ -321,17 +396,18 @@ function wire() {
   $("#btnReset").onclick = () => {
     if (!confirm("Discard your edits on this device and reload the last Excel export?")) return;
     localStorage.removeItem(KEY); st = JSON.parse(JSON.stringify(base)); renderAll(); flash("Reset");
+    recordChange("Reset — discarded local edits and reloaded the last Excel export");
   };
 }
 
 /* --------------------------------------------------------------------- boot */
 (async function () {
-  if (!AuthGate.isAuthed()) { AuthGate.show(); return; }
   const res = await fetch("data.json", { cache: "no-cache" });
   base = await res.json();
   st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
   $("#eventName").textContent = base.event;
   $("#genDate").textContent = base.generated;
+  $("#yourName").value = localStorage.getItem(NAME_KEY) || "";
   renderAll(); wire();
   $("#saveState").textContent = "Auto-saved";
 })();

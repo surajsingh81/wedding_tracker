@@ -46,6 +46,8 @@ function buildSyncPayload() {
     event: st.event,
     sentAt: new Date().toISOString(),
     source: "web",
+    author: ($("#yourName")?.value || "").trim() || "Anonymous",
+    changes: getChanges(),
     guests,
     vendors: st.vendors.map(v => ({
       name: v.name, contact: v.contact, phone: v.phone, whatsapp: v.whatsapp,
@@ -65,6 +67,7 @@ async function syncNow() {
   const email = (window.SYNC_EMAIL || "").trim();
   const payload = buildSyncPayload();
   const body = JSON.stringify(payload, null, 1);
+  recordChange(`Sent ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) to Excel`);
 
   // No relay configured yet -> fall back to emailing the payload yourself.
   // The scheduled Automation reads this email and patches the workbook.
