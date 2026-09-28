@@ -13,8 +13,11 @@ the "Wedding tracker update" email). This script:
   6. saves, and optionally re-exports data.json.
 
 Usage:
-  python3 tools/apply_payload.py payload.json [--export]
-  cat payload.json | python3 tools/apply_payload.py - [--export]
+  python3 tools/apply_payload.py payload.json [--export] [--workbook PATH]
+  cat payload.json | python3 tools/apply_payload.py - [--export] [--workbook PATH]
+
+--workbook PATH applies to a copy instead of the real workbook (for tests);
+the lock check, backup, and save all follow PATH.
 """
 
 import json
@@ -61,24 +64,34 @@ def num_or_blank(v):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    do_export = "--export" in sys.argv[1:]
+    argv = sys.argv[1:]
+    target = XLSX
+    if "--workbook" in argv:
+        i = argv.index("--workbook")
+        if i + 1 >= len(argv):
+            print("usage: --workbook PATH is required after --workbook")
+            sys.exit(2)
+        target = Path(argv[i + 1])
+        del argv[i:i + 2]
+    args = [a for a in argv if not a.startswith("--")]
+    do_export = "--export" in argv
 
     if not args:
-        print("usage: apply_payload.py payload.json [--export]  (or '-' for stdin)")
+        print("usage: apply_payload.py payload.json [--export] [--workbook PATH]  (or '-' for stdin)")
         sys.exit(2)
     payload = json.load(sys.stdin if args[0] == "-" else open(args[0]))
 
-    if LOCK.exists():
+    lock = target.with_name("~$" + target.name)
+    if lock.exists():
         print("ABORT: the workbook is open in Excel. Save and close it, then retry.")
         sys.exit(3)
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = XLSX.with_name(f"Wedding_Expense_Tracker_Dec2026.backup-apply-{stamp}.xlsx")
-    shutil.copy2(XLSX, backup)
+    backup = target.with_name(f"{target.stem}.backup-apply-{stamp}.xlsx")
+    shutil.copy2(target, backup)
     print(f"backup: {backup.name}")
 
-    wb = load_workbook(XLSX)
+    wb = load_workbook(target)
     applied_g = applied_v = appended_v = 0
     skipped = []
 
@@ -154,7 +167,7 @@ def main():
                 v[f"{c}{row}"] = num_or_blank(vd.get(f)) if f in ("quoted", "paid") else clean(vd.get(f))
             applied_v += 1
 
-    wb.save(XLSX)
+    wb.save(target)
     print(f"guests applied: {applied_g}, vendors updated: {applied_v}, vendors appended: {appended_v}")
     if skipped:
         print("skipped:")
