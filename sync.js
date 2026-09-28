@@ -61,12 +61,30 @@ function buildSyncPayload() {
 
 async function syncNow() {
   const url = (window.SYNC_ENDPOINT || "").trim();
+  const email = (window.SYNC_EMAIL || "").trim();
+  const payload = buildSyncPayload();
+  const body = JSON.stringify(payload, null, 1);
+
+  // No relay configured yet -> fall back to emailing the payload yourself.
+  // The scheduled Automation reads this email and patches the workbook.
   if (!url) {
+    if (!email) {
+      syncStatus(
+        "Sending is not switched on yet — it needs an email address. Your entries are still saved in this browser.",
+        "msg-warn");
+      return;
+    }
+    const subject = encodeURIComponent(`Wedding tracker update — ${payload.sentAt.slice(0, 10)}`);
+    const href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${encodeURIComponent(body)}`;
+    window.location.href = href;
     syncStatus(
-      "Sending is not switched on yet — it needs an email/relay address. Your entries are still saved in this browser.",
-      "msg-warn");
+      `Your mail app should open with ${payload.guests.length} guest name(s) and `
+      + `${payload.vendors.length} vendor row(s) — just press send. The spreadsheet picks it up automatically.`,
+      "msg-ok");
+    flash("Mail opened");
     return;
   }
+
   const btn = $("#btnSync");
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = "Sending…";
@@ -74,12 +92,11 @@ async function syncNow() {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildSyncPayload()),
+      body,
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const sent = buildSyncPayload();
     syncStatus(
-      `Sent ${sent.guests.length} guest name(s) and ${sent.vendors.length} vendor row(s) `
+      `Sent ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) `
       + `at ${new Date().toLocaleTimeString()}. The spreadsheet picks these up automatically.`,
       "msg-ok");
     flash("Sent");
