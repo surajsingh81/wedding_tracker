@@ -118,9 +118,10 @@ function renderOverview() {
     ["Total quoted", inr(q), "", ""],
     ["Total paid", inr(p), "", "ok"],
     ["Total outstanding", inr(q - p), "", q - p > 0 ? "warn" : "ok"],
-  ].map(([k, v, n, c]) =>
-    `<div class="card ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n || "&nbsp;")}</div></div>`
-  ).join("");
+  ].map(([k, v, n, c]) => {
+    const note = esc(n || "");
+    return `<div class="card ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${note || "&nbsp;"}</div></div>`;
+  }).join("");
 
   $("#nightBars").innerHTML = st.hotels.map(h => `
     <h3>${esc(h.name)}</h3>` + h.nights.map((n, i) => {
