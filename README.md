@@ -15,25 +15,27 @@ No build step, no dependencies, no server. It is plain `index.html` + `styles.cs
 | `styles.css` | All styling, including dark mode and print |
 | `app.js` | Rendering, editing, and the stats |
 | `data.json` | **The data**, exported from the workbook |
+| `Wedding_Expense_Tracker_Dec2026.xlsx` | The workbook itself, downloadable |
 | `Vendor PDFs/` | The invoice PDF the page links to |
 
-## ⚠️ Public vs private data
+## Data & the Excel file
 
-The deployed site is **public**. The repo therefore contains `data.public.json` —
-a redacted copy that keeps the room grids, guest names and hotel notes (the page
-needs them) but strips vendor phones, WhatsApp, emails, addresses, payment
-amounts, UTRs, notes and the invoice detail.
+Everything is public by choice — the data is not confidential. The repo contains:
 
-The **full** export is `data.json`, which is gitignored and never pushed. It is
-generated locally by the exporter and used for the Excel sync.
+- `data.json` — the full export from the workbook (guest names, vendor contacts,
+  payment amounts, invoice detail).
+- `Wedding_Expense_Tracker_Dec2026.xlsx` — the actual workbook, downloadable
+  from the repo.
 
-- `tools/export_site_data.py` → writes the full `data.json` (local only).
-- `tools/make_public_data.py` → derives `data.public.json` from it (committed).
-- `app.js` loads `data.public.json` when `PUBLIC_MODE` is true (deployed) and
-  `data.json` when false (local full preview).
+## Refreshing from the workbook
 
-If you ever want the full data public, delete the redaction and push `data.json`
-— but remember it is permanent once pushed.
+After changing the spreadsheet, re-export and commit the result:
+
+```bash
+python3 tools/export_site_data.py     # writes data.json
+git add data.json Wedding_Expense_Tracker_Dec2026.xlsx
+git commit -m "refresh from workbook" && git push
+```
 
 ## How edits work
 
@@ -52,38 +54,23 @@ below is the way to do it.
 ## Getting entries into Excel
 
 A static page cannot write to a local `.xlsx` file, and GitHub Pages is
-read-only. So "Send to Excel" POSTs a JSON payload to a tiny endpoint, and that
-endpoint forwards it to the workbook. Two supported ways:
+read-only. So **Send to Excel** opens your mail app with the payload addressed
+to `surajupes@gmail.com` (set in `sync-config.js`) — just press send.
 
-1. **Email relay (recommended, matches "one email")** — point the page at a form
-   service (Formspree, Web3Forms, EmailJS) or a Google Apps Script web app that
-   emails the payload to your inbox. Then a scheduled OpenWork Automation reads
-   that email, parses the JSON, and patches
-   `Wedding_Expense_Tracker_Dec2026.xlsx` (with a timestamped backup first).
-2. **Google Sheets bridge** — the endpoint appends the payload to a Google Sheet;
-   the same Automation reads the sheet and patches the workbook.
+To carry that email into the workbook, run the patch script on the payload:
 
-To switch sending on, put the endpoint URL in `sync-config.js`:
-
-```js
-window.SYNC_ENDPOINT = "https://your-relay.example/accept";
-window.SYNC_EMAIL   = "you@example.com";
+```bash
+python3 tools/apply_payload.py payload.json --export
 ```
+
+It backs up the workbook first, refuses to run while Excel has the file open,
+writes guest names into the grids (full state, so clearing a name clears the
+cell), updates vendor rows, and appends new vendors as fresh rows above TOTAL
+with the SUM ranges extended.
 
 The payload shape is documented in `sync.js` (`buildSyncPayload()`): a flat list
 of guest entries (hotel, room, night, slot, name) plus the full vendor list, with
 `row: null` / `isNew: true` marking vendors that should be appended as new rows.
-
-## Refreshing from the workbook
-
-`data.json` is generated from the Excel file, so after changing the spreadsheet
-re-run the exporter and the public copy, then commit the result:
-
-```bash
-python3 tools/export_site_data.py     # full data.json (local only)
-python3 tools/make_public_data.py     # redacted data.public.json (committed)
-git add data.public.json && git commit -m "refresh from workbook" && git push
-```
 
 It reads the workbook by **label** (`Check-in`, `Total rooms`, `Vendor / Category`,
 `TOTAL`), not by row number, so inserting or deleting rows in Excel will not
