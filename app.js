@@ -405,7 +405,7 @@ function wire() {
   const res = await fetch("data.json", { cache: "no-cache" });
   base = await res.json();
   st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
-  $("#eventName").textContent = base.event;
+  $("#eventName").textContent = (base.event || "").replace(/^Wedding\s*[-–]\s*/i, "") || base.event;
   $("#genDate").textContent = base.generated;
   $("#yourName").value = localStorage.getItem(NAME_KEY) || "";
   renderAll(); wire();

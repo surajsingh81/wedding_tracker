@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wedding Tracker — December 2026</title>
-<link rel="stylesheet" href="styles.css?v=4">
+<title>Suraj &amp; Priyanka — Wedding Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -24,7 +27,11 @@
 
 <header class="topbar">
   <div class="wrap">
-    <h1>Wedding Tracker <span class="sub" id="eventName"></span></h1>
+    <div class="brand">
+      <div class="orn">✦</div>
+      <h1>Suraj <span class="amp">&amp;</span> Priyanka</h1>
+      <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
+    </div>
     <div class="topbar-actions">
       <input id="yourName" class="name-input" placeholder="Your name"
              title="Your name is recorded with every change you make" autocomplete="name">
@@ -108,11 +115,12 @@
      Press <strong>Send to Excel</strong> when you want your entries carried into the
      spreadsheet. <strong>Reset</strong> throws them away and goes back to the last export.</p>
   <p class="dim" id="syncStatus">Figures generated from the workbook on <span id="genDate"></span>.</p>
+  <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
 </footer>
 
-<script src="sync-config.js?v=4"></script>
-  <script src="auth.js?v=4"></script>
-  <script src="sync.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+<script src="sync-config.js?v=5"></script>
+  <script src="auth.js?v=5"></script>
+  <script src="sync.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

@@ -1,52 +1,80 @@
-/* Wedding tracker — plain CSS, no build step, works offline and on GitHub Pages. */
+/* Suraj & Priyanka — Wedding Tracker
+   Plain CSS, no build step, works offline and on GitHub Pages. */
 
 :root{
-  --bg:#f6f7f9; --card:#fff; --ink:#16202b; --dim:#69737f; --line:#dfe4ea;
-  --ok:#0f7b4f; --ok-bg:#e6f5ee; --warn:#9a5b00; --warn-bg:#fdf1dc;
-  --bad:#a32020; --bad-bg:#fbeaea; --edit:#fff8e6; --accent:#1f5f8b;
-  --r:10px;
+  --bg:#faf5ec; --card:#fffdf8; --ink:#3b2b26; --dim:#8a7468; --line:#eadfce;
+  --brand:#7a1f2b; --gold:#c9a227; --gold-soft:#f3e3c3;
+  --ok:#1c7a4d; --ok-bg:#e7f4ec; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#a32020; --bad-bg:#fbeaea; --edit:#fff8e6;
+  --r:14px;
+  --serif:"Playfair Display",Georgia,"Times New Roman",serif;
+  --sans:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#14181d; --card:#1c2229; --ink:#e8edf2; --dim:#9aa6b2; --line:#2c343d;
-    --ok:#5fd3a0; --ok-bg:#123528; --warn:#f0be6d; --warn-bg:#3a2c11;
-    --bad:#ff9a9a; --bad-bg:#3d1c1c; --edit:#2a2519; --accent:#7fb8dd;
+    --bg:#1a1216; --card:#241a1f; --ink:#f3e9e2; --dim:#b39a8c; --line:#3a2a30;
+    --brand:#e8b4a8; --gold:#d9b23a; --gold-soft:#3d2f16;
+    --ok:#7fd6a8; --ok-bg:#1d3a2c; --warn:#e8c07a; --warn-bg:#3d2f16;
+    --bad:#ff9d9d; --bad-bg:#43201f; --edit:#2e2320;
   }
 }
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  font:16px/1.55 var(--sans)}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 h1{font-size:1.25rem;margin:0}
-h2{font-size:1.05rem;margin:28px 0 6px}
-h3{font-size:.98rem;margin:0 0 8px}
-a{color:var(--accent)}
+h2{font-family:var(--serif);font-size:1.3rem;margin:30px 0 6px;color:var(--brand)}
+h3{font-family:var(--serif);font-size:1.05rem;margin:0 0 8px}
+a{color:var(--brand)}
 
 /* ------------------------------------------------------------------ topbar */
-.topbar{background:var(--card);border-bottom:1px solid var(--line);padding:12px 0;
-  position:sticky;top:0;z-index:20}
-.topbar .wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-.sub{color:var(--dim);font-weight:400;font-size:.85rem}
-.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.btn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;
-  padding:7px 12px;font-size:.85rem;cursor:pointer;font-family:inherit}
-.btn:hover{border-color:var(--accent);color:var(--accent)}
+.topbar{
+  background:linear-gradient(135deg,#5c1420 0%,#7a1f2b 55%,#8f2b36 100%);
+  color:#fdf6ec;padding:22px 0 16px;position:sticky;top:0;z-index:20;
+  box-shadow:0 2px 16px rgba(92,20,32,.28);
+}
+.topbar .wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+.brand{text-align:center}
+.brand .orn{color:var(--gold);font-size:1rem;letter-spacing:.5em;margin-bottom:2px}
+.brand h1{font-family:var(--serif);font-weight:700;font-size:clamp(1.7rem,4vw,2.6rem);
+  letter-spacing:.02em;color:#fdf6ec;line-height:1.15}
+.brand .amp{color:var(--gold);font-style:italic;font-weight:500;padding:0 .12em}
+.tagline{color:#e8cfae;font-size:.78rem;letter-spacing:.24em;text-transform:uppercase;margin:6px 0 0}
+.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+.btn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+  padding:7px 13px;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:700}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#5c1420}
+.btn.primary:hover{background:#d9b23a;border-color:#d9b23a;color:#5c1420}
 .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
-.save-state{font-size:.78rem;color:var(--dim);min-width:88px;text-align:right}
+.topbar-actions .btn{background:rgba(255,255,255,.08);color:#fdf6ec;
+  border:1px solid rgba(253,246,236,.35)}
+.topbar-actions .btn:hover{background:rgba(255,255,255,.16);border-color:var(--gold);color:#ffe9c4}
+.topbar-actions .btn.primary{background:var(--gold);border-color:var(--gold);color:#5c1420}
+.topbar-actions .btn.primary:hover{background:#d9b23a;color:#5c1420}
+.topbar-actions .btn.danger:hover{border-color:#ffb3a7;color:#ffb3a7}
+.save-state{font-size:.78rem;color:#e8cfae;min-width:88px;text-align:right}
+.name-input{font:inherit;font-size:14px;padding:6px 10px;width:130px;border-radius:9px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(253,246,236,.35);color:#fdf6ec}
+.name-input::placeholder{color:#e8cfae}
+.name-input:focus{outline:2px solid var(--gold);background:rgba(255,255,255,.16)}
 
 /* -------------------------------------------------------------------- tabs */
-.tabs{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap}
-.tab{background:none;border:none;border-bottom:3px solid transparent;padding:9px 12px;
-  cursor:pointer;color:var(--dim);font-size:.9rem;font-family:inherit;font-weight:600}
-.tab:hover{color:var(--ink)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs{display:flex;gap:2px;margin-top:20px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:10px 14px;
+  cursor:pointer;color:var(--dim);font-size:.9rem;font-family:inherit;font-weight:700;
+  letter-spacing:.03em}
+.tab:hover{color:var(--brand)}
+.tab.active{color:var(--brand);border-bottom-color:var(--gold)}
 
 /* ------------------------------------------------------------------- cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:12px 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
-.card .k{font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim)}
-.card .v{font-size:1.5rem;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+  box-shadow:0 1px 4px rgba(122,31,43,.06)}
+.card .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
+.card .v{font-family:var(--serif);font-size:1.55rem;font-weight:700;margin-top:4px;
+  color:var(--brand);font-variant-numeric:tabular-nums}
 .card .n{font-size:.78rem;color:var(--dim);margin-top:2px}
 .card.ok .v{color:var(--ok)} .card.warn .v{color:var(--warn)} .card.bad .v{color:var(--bad)}
 
@@ -77,8 +105,8 @@ a{color:var(--accent)}
 table.grid{border-collapse:collapse;width:100%;font-size:.87rem}
 table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;
   vertical-align:top}
-table.grid thead th{background:var(--bg);font-size:.72rem;text-transform:uppercase;
-  letter-spacing:.04em;color:var(--dim);position:sticky;top:0;white-space:nowrap}
+table.grid thead th{background:var(--gold-soft);font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--brand);position:sticky;top:0;white-space:nowrap}
 table.grid tbody tr:hover{background:var(--bg)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sticky-col{position:sticky;left:0;background:var(--card);z-index:2;
@@ -89,7 +117,7 @@ table.grid tbody tr:hover .sticky-col{background:var(--bg)}
 .gcell{display:flex;flex-direction:column;gap:2px;min-width:86px}
 .gcell input{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:6px;
   background:var(--edit);color:var(--ink);font:inherit;font-size:.82rem}
-.gcell input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.gcell input:focus{outline:2px solid var(--brand);outline-offset:-1px}
 .gcell input::placeholder{color:var(--dim);opacity:.65}
 tr.total td{font-weight:700;background:var(--bg)}
 tr.filled td{background:var(--ok-bg)}
@@ -103,9 +131,10 @@ tr.filled td{background:var(--ok-bg)}
 .pill.none{background:var(--bg);color:var(--dim)}
 
 /* ------------------------------------------------------------------- notes */
-.notes{margin:14px 0 0;padding:0;list-style:none;border-top:1px dashed var(--line);padding-top:10px}
+.notes{margin:14px 0 0;padding:0;list-style:none;border-top:1px dashed var(--gold);
+  padding-top:10px}
 .notes li{font-size:.83rem;color:var(--dim);margin-bottom:5px;padding-left:16px;position:relative}
-.notes li:before{content:"•";position:absolute;left:4px}
+.notes li:before{content:"❧";position:absolute;left:2px;color:var(--gold)}
 
 details.inv{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
   padding:12px 14px;margin-bottom:12px}
@@ -116,12 +145,16 @@ details.inv>summary:after{content:"▾";color:var(--dim)}
 details.inv[open]>summary:after{content:"▴"}
 .inv .caption{font-size:.83rem;color:var(--dim);margin:10px 0 0}
 
-.foot{border-top:1px solid var(--line);margin:32px 0 24px;padding-top:14px;
+.foot{border-top:1px solid var(--gold);margin:32px 0 24px;padding-top:14px;
   font-size:.83rem;color:var(--dim)}
+.foot .love{color:var(--brand);font-weight:700}
 
 @media print{
   .topbar-actions,.tabs,.btn{display:none!important}
   body{background:#fff}
+  .topbar{background:#fff;color:#3b2b26;box-shadow:none;position:static}
+  .brand h1{color:#7a1f2b}
+  .tagline{color:#8a7468}
   .panel,.card,details.inv{break-inside:avoid}
   details.inv{page-break-inside:avoid}
 }
@@ -147,36 +180,29 @@ input.cell.strong { font-weight: 600; min-width: 150px; }
 #syncStatus.msg-warn  { color: #a35a00; }
 #syncStatus.msg-error { color: #b3261e; }
 
-/* --------------------------------------------------------------- lock screen */
+/* --------------------------------------------------------------- lock modal */
 .lock {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg, #f6f4ee);
+  background: rgba(26,18,22,.55);
+  backdrop-filter: blur(3px);
 }
 .lock-card {
-  background: #fff; border: 1px solid var(--line, #e2ddd2); border-radius: 16px;
+  background: var(--card); border: 1px solid var(--gold); border-radius: 18px;
   padding: 32px 28px; width: min(340px, 90vw);
   display: flex; flex-direction: column; gap: 12px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.12);
+  box-shadow: 0 18px 50px rgba(60,10,20,.35);
 }
-.lock-card h1 { margin: 0; font-size: 22px; }
+.lock-card h1 { margin: 0; font-family: var(--serif); font-size: 24px; color: var(--brand); }
 .lock-card input {
   font: inherit; font-size: 16px; padding: 10px 12px;
-  border: 1px solid var(--line, #e2ddd2); border-radius: 9px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--ink);
 }
-.lock-card input:focus { outline: 2px solid var(--brand, #7a4a2b); }
+.lock-card input:focus { outline: 2px solid var(--gold); }
 .lock-err { color: #b3261e; min-height: 1.2em; margin: 0; font-size: 14px; }
 .lock-row { display: flex; gap: 8px; }
 .lock-row .btn { flex: 1; }
 
-/* ------------------------------------------------------------- name input */
-.name-input {
-  font: inherit; font-size: 14px; padding: 6px 10px; width: 130px;
-  border: 1px solid var(--line, #e2ddd2); border-radius: 9px;
-  background: #fff; color: inherit;
-}
-.name-input:focus { outline: 2px solid var(--brand, #7a4a2b); }
-.nowrap { white-space: nowrap; }
-
 /* hidden must win over the flex layout above */
 .lock[hidden] { display: none; }
+.nowrap { white-space: nowrap; }
