@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wedding Tracker — December 2026</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <h1>Wedding Tracker <span class="sub" id="eventName"></span></h1>
+    <div class="topbar-actions">
+      <span id="saveState" class="save-state"></span>
+      <button id="btnExport"  class="btn"    title="Download all data as a JSON file">Export</button>
+      <button id="btnImport"  class="btn"    title="Load a previously exported JSON file">Import</button>
+      <button id="btnPrint"   class="btn"    title="Print or save as PDF">Print</button>
+      <button id="btnReset"   class="btn danger" title="Discard your edits and reload the last Excel export">Reset</button>
+      <input type="file" id="fileInput" accept="application/json" hidden>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs wrap" id="tabs">
+  <button class="tab active" data-view="overview">Overview</button>
+  <button class="tab" data-view="rooms">Rooms &amp; Guests</button>
+  <button class="tab" data-view="vendors">Vendors &amp; Payments</button>
+  <button class="tab" data-view="invoices">Invoices</button>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============================================================ OVERVIEW -->
+  <section id="view-overview" class="view">
+    <div class="cards" id="overviewCards"></div>
+
+    <h2>Rooms by night</h2>
+    <p class="hint">How many rooms are booked versus how many guests have actually been
+       entered. Tap <strong>Rooms &amp; Guests</strong> to fill names in.</p>
+    <div id="nightBars"></div>
+
+    <h2>Money</h2>
+    <p class="hint">Same figures as the Vendors sheet in the spreadsheet.</p>
+    <div class="cards" id="moneyCards"></div>
+  </section>
+
+  <!-- ================================================================ ROOMS -->
+  <section id="view-rooms" class="view" hidden>
+    <p class="hint">
+      Every room has <strong>two guest slots</strong> — a room with two people still counts
+      as <strong>one room</strong>. Leave a slot empty if that guest is not staying that night.
+      Everything you type is saved in this browser.
+    </p>
+    <div id="hotelPanels"></div>
+  </section>
+
+  <!-- ============================================================= VENDORS -->
+  <section id="view-vendors" class="view" hidden>
+    <p class="hint">
+      <strong>One row per vendor.</strong> If a single invoice covers several services they all
+      go in that one row. Amber cells are editable.
+    </p>
+    <div class="table-scroll">
+      <table class="grid" id="vendorTable"></table>
+    </div>
+    <div class="cards" id="vendorSummary"></div>
+  </section>
+
+  <!-- ============================================================ INVOICES -->
+  <section id="view-invoices" class="view" hidden>
+    <p class="hint">Extracted invoice detail, kept separately so it is never added to the
+       totals a second time.</p>
+    <div id="invoicePanels"></div>
+  </section>
+
+</main>
+
+<footer class="wrap foot">
+  <p>Static page — nothing is sent anywhere. Your edits live in this browser only.
+     Use <strong>Export</strong> to save a copy, and <strong>Import</strong> to load one back.</p>
+  <p class="dim">Figures generated from the workbook on <span id="genDate"></span>.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

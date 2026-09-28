@@ -1,0 +1,893 @@
+{
+ "generated": "2026-09-28",
+ "event": "Wedding - December 2026",
+ "hotels": [
+  {
+   "id": "nirmal",
+   "name": "NIRMAL",
+   "checkIn": "08-Dec-2026",
+   "checkOut": "14-Dec-2026",
+   "checkoutTime": "",
+   "totalRooms": 10,
+   "totalRoomNights": 37,
+   "nights": [
+    "08-Dec-2026",
+    "09-Dec-2026",
+    "10-Dec-2026",
+    "11-Dec-2026",
+    "12-Dec-2026",
+    "13-Dec-2026"
+   ],
+   "needed": [
+    2,
+    3,
+    10,
+    10,
+    10,
+    2
+   ],
+   "grid": [
+    [
+     [
+      "hello",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ]
+   ],
+   "notes": [
+    "How to use:  every room has a 'Guest 1' row and a 'Guest 2' row. Type a name in the white cell for the night that guest is staying. Leave a cell blank if that guest is not in that room that night. FILLED counts occupied ROOMS, not guest names, so a room with two guests still counts as one room.",
+    "Give this grid to the front desk on arrival. Hand out room keys against the names you typed.",
+    "Two guests in one room?  Put the first name in the 'Guest 1' row and the second in the 'Guest 2' row for that same night. Both rows belong to the same room, so it still counts as one room against NEEDED.",
+    "Check-out is 14-Dec-2026. 13-Dec is the last night and only 2 rooms are needed, so release the other 8 rooms after checkout on 13-Dec."
+   ]
+  },
+  {
+   "id": "amarai",
+   "name": "AMARAI",
+   "checkIn": "08-Dec-2026",
+   "checkOut": "12-Dec-2026",
+   "checkoutTime": "12:30 PM",
+   "totalRooms": 7,
+   "totalRoomNights": 23,
+   "nights": [
+    "08-Dec-2026",
+    "09-Dec-2026",
+    "10-Dec-2026",
+    "11-Dec-2026",
+    "12-Dec-2026"
+   ],
+   "needed": [
+    2,
+    7,
+    7,
+    7,
+    0
+   ],
+   "grid": [
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ],
+    [
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ],
+     [
+      "",
+      ""
+     ]
+    ]
+   ],
+   "notes": [
+    "How to use:  every room has a 'Guest 1' row and a 'Guest 2' row. Type a name in the white cell for the night that guest is staying. Leave a cell blank if that guest is not in that room that night. FILLED counts occupied ROOMS, not guest names, so a room with two guests still counts as one room.",
+    "Give this grid to the front desk on arrival. Hand out room keys against the names you typed.",
+    "Two guests in one room?  Put the first name in the 'Guest 1' row and the second in the 'Guest 2' row for that same night. Both rows belong to the same room, so it still counts as one room against NEEDED.",
+    "Checkout is 12-Dec at 12:30 PM, so 12-Dec needs 0 rooms overnight. Rooms 1-7 are held for the nights of 08, 09, 10 and 11 Dec only.",
+    "Ask the front desk to release all 7 rooms on 12-Dec at 12:30 PM. Only 2 of the 7 rooms are actually needed on the night of 08-Dec."
+   ]
+  }
+ ],
+ "vendors": [
+  {
+   "row": 4,
+   "name": "Band / Baraat & DJ & Sound System",
+   "contact": "Deeplaxmie Events",
+   "phone": "8605622211",
+   "whatsapp": "",
+   "email": "",
+   "address": "Raviwar Peth, Moti Chowk, Pune 411002",
+   "event": "Baraat",
+   "eventDate": "11-Dec-2026",
+   "quoted": 41000,
+   "paid": 11000,
+   "paymentMode": "",
+   "ref": "Invoice 284",
+   "paidOn": "",
+   "notes": "11-Dec-2026, 7:00-10:00 PM.  Single combined row for the whole invoice: DJ mixer + operator, 4 top & 2 bass speakers, mic, paar lights, name board both sides, driver, fuel, dance floor, light umbrella setup, generator backup, Punjabi dhol x2.  Do not add separate lighting, DJ or generator rows - all of it is inside the 41,000.  See the itemised reference further down.",
+   "pdf": "Vendor%20PDFs/Baraat-DJ-Invoice-284-11Dec2026.pdf"
+  },
+  {
+   "row": 5,
+   "name": "Tent & Banquet Hall",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Sangeet + Reception",
+   "eventDate": "11-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 6,
+   "name": "Flower Decoration",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "All events",
+   "eventDate": "",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 7,
+   "name": "Photography",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Wedding",
+   "eventDate": "12-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 8,
+   "name": "Videography",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Wedding",
+   "eventDate": "12-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 9,
+   "name": "Catering (Food)",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Sangeet, Reception, Brunch",
+   "eventDate": "11-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 10,
+   "name": "Pandit / Purohit",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Wedding Ceremony",
+   "eventDate": "12-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 11,
+   "name": "Makeup & Mehendi",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Mehendi",
+   "eventDate": "10-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 12,
+   "name": "Stage & Seating",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Sangeet + Wedding",
+   "eventDate": "11-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 13,
+   "name": "Transport / Cars",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Baraat",
+   "eventDate": "12-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 14,
+   "name": "Return Gifts / Favours",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Reception",
+   "eventDate": "12-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 15,
+   "name": "Haldi & Mehendi Items",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Haldi",
+   "eventDate": "11-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 16,
+   "name": "Sangeet Anchoring / Choreography",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "Sangeet Night",
+   "eventDate": "11-Dec-2026",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 17,
+   "name": "Other / Miscellaneous",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "",
+   "eventDate": "",
+   "quoted": "",
+   "paid": "",
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  },
+  {
+   "row": 18,
+   "name": "Hotel - Nirmal's Executive",
+   "contact": "Nirmal Reception",
+   "phone": "+91 93091 74167",
+   "whatsapp": "+91 93091 74167",
+   "email": "",
+   "address": "Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India",
+   "event": "Accommodation 08-14 Dec",
+   "eventDate": "",
+   "quoted": 84000,
+   "paid": 25000,
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
+  }
+ ],
+ "vendorDetails": {
+  "Deeplaxmie Events": {
+   "kind": "invoice",
+   "title": "BAND / BARAAT — INVOICE 284 BREAKDOWN (Deeplaxmie Events, 11-Dec-2026, 7:00-10:00 PM)",
+   "sub": "Band / Baraat & DJ & Sound System  |  11-Dec-2026, 7:00-10:00 PM  |  Raviwar Peth, Moti Chowk, Pune 411002  |  8605622211",
+   "caption": "REFERENCE ONLY. These figures do not feed the Vendors sheet. The whole invoice is tracked as ONE vendor row (Vendors row 5) so nothing is double counted.",
+   "items": [
+    [
+     "Baraat DJ Truck",
+     1,
+     25000,
+     25000
+    ],
+    [
+     "Light Chatri",
+     8,
+     2000,
+     16000
+    ],
+    [
+     "Punjabhi Dhol",
+     2,
+     2000,
+     4000
+    ]
+   ],
+   "totals": [
+    [
+     "Sub Total",
+     45000
+    ],
+    [
+     "Less: Discounts",
+     -4000
+    ],
+    [
+     "Total",
+     41000
+    ],
+    [
+     "Advance paid",
+     11000
+    ],
+    [
+     "Balance due",
+     30000
+    ]
+   ],
+   "terms": "Invoice 284 terms: advance is non-refundable, balance must clear before or on event day prior to setup, crowd damage is chargeable, extra hours are billed extra.",
+   "pdf": "Vendor%20PDFs/Baraat-DJ-Invoice-284-11Dec2026.pdf"
+  },
+  "Nirmal's Executive": {
+   "kind": "hotel",
+   "title": "NIRMAL'S EXECUTIVE — HOTEL COST DETAIL",
+   "sub": "+91 93091 74167  |  Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India",
+   "caption": "REFERENCE / DETAIL VIEW. The hotel is tracked as ONE row on the Vendors sheet (row 19) and its 84,000 / 25,000 are included in the Vendors TOTAL. This sheet only breaks the cost down — it does not add to the totals a second time.",
+   "booking": [
+    [
+     "Check-in",
+     "08-Dec-2026"
+    ],
+    [
+     "Check-out",
+     "14-Dec-2026"
+    ],
+    [
+     "Total rooms",
+     10
+    ],
+    [
+     "Total room-nights",
+     37
+    ]
+   ],
+   "plan": [
+    [
+     "08-Dec",
+     2,
+     2
+    ],
+    [
+     "09-Dec",
+     3,
+     3
+    ],
+    [
+     "10-Dec",
+     10,
+     10
+    ],
+    [
+     "11-Dec",
+     10,
+     10
+    ],
+    [
+     "12-Dec",
+     10,
+     10
+    ],
+    [
+     "13-Dec",
+     2,
+     2
+    ]
+   ],
+   "cost": [
+    [
+     "Amount quoted",
+     84000
+    ],
+    [
+     "Amount paid",
+     25000
+    ],
+    [
+     "Balance due",
+     ""
+    ]
+   ],
+   "contact": [
+    [
+     "Google rating",
+     "4,792 reviews"
+    ],
+    [
+     "Phone",
+     "+91 93091 74167"
+    ],
+    [
+     "Address",
+     "Sr No 40,2, Classic Gloria, near Angraj Dhaba, Yewalewadi, Sinhgad Kondwa, Danny Mehata Nagar, Kondhwa Budruk, Pune, Maharashtra 411048, India"
+    ]
+   ]
+  }
+ }
+}

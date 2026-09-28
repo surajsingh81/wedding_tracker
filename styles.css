@@ -1,0 +1,127 @@
+/* Wedding tracker — plain CSS, no build step, works offline and on GitHub Pages. */
+
+:root{
+  --bg:#f6f7f9; --card:#fff; --ink:#16202b; --dim:#69737f; --line:#dfe4ea;
+  --ok:#0f7b4f; --ok-bg:#e6f5ee; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#a32020; --bad-bg:#fbeaea; --edit:#fff8e6; --accent:#1f5f8b;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14181d; --card:#1c2229; --ink:#e8edf2; --dim:#9aa6b2; --line:#2c343d;
+    --ok:#5fd3a0; --ok-bg:#123528; --warn:#f0be6d; --warn-bg:#3a2c11;
+    --bad:#ff9a9a; --bad-bg:#3d1c1c; --edit:#2a2519; --accent:#7fb8dd;
+  }
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+h1{font-size:1.25rem;margin:0}
+h2{font-size:1.05rem;margin:28px 0 6px}
+h3{font-size:.98rem;margin:0 0 8px}
+a{color:var(--accent)}
+
+/* ------------------------------------------------------------------ topbar */
+.topbar{background:var(--card);border-bottom:1px solid var(--line);padding:12px 0;
+  position:sticky;top:0;z-index:20}
+.topbar .wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.sub{color:var(--dim);font-weight:400;font-size:.85rem}
+.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:7px 12px;font-size:.85rem;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.save-state{font-size:.78rem;color:var(--dim);min-width:88px;text-align:right}
+
+/* -------------------------------------------------------------------- tabs */
+.tabs{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:9px 12px;
+  cursor:pointer;color:var(--dim);font-size:.9rem;font-family:inherit;font-weight:600}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ------------------------------------------------------------------- cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.card .k{font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim)}
+.card .v{font-size:1.5rem;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.card .n{font-size:.78rem;color:var(--dim);margin-top:2px}
+.card.ok .v{color:var(--ok)} .card.warn .v{color:var(--warn)} .card.bad .v{color:var(--bad)}
+
+.hint{color:var(--dim);font-size:.88rem;margin:4px 0 14px;max-width:70ch}
+.dim{color:var(--dim);font-size:.8rem}
+
+/* ------------------------------------------------------------- night bars */
+.night{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
+  padding:12px 14px;margin-bottom:10px}
+.night-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.night-h .d{font-weight:700}
+.track{height:22px;background:var(--bg);border-radius:6px;overflow:hidden;display:flex}
+.fill{background:var(--ok);height:100%}
+.fill.short{background:var(--warn)} .fill.over{background:var(--bad)}
+.night-h .s{font-size:.85rem;font-weight:600}
+.s.ok{color:var(--ok)} .s.short{color:var(--warn)} .s.over{color:var(--bad)}
+
+/* ------------------------------------------------------------------ panels */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px;margin:0 0 18px}
+.panel-h{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline;
+  border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--dim)}
+.meta b{color:var(--ink);font-weight:600}
+
+/* ------------------------------------------------------------------ tables */
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+table.grid{border-collapse:collapse;width:100%;font-size:.87rem}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;
+  vertical-align:top}
+table.grid thead th{background:var(--bg);font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--dim);position:sticky;top:0;white-space:nowrap}
+table.grid tbody tr:hover{background:var(--bg)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sticky-col{position:sticky;left:0;background:var(--card);z-index:2;
+  border-right:1px solid var(--line)}
+table.grid tbody tr:hover .sticky-col{background:var(--bg)}
+
+/* guest cells: two inputs stacked */
+.gcell{display:flex;flex-direction:column;gap:2px;min-width:86px}
+.gcell input{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:6px;
+  background:var(--edit);color:var(--ink);font:inherit;font-size:.82rem}
+.gcell input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.gcell input::placeholder{color:var(--dim);opacity:.65}
+tr.total td{font-weight:700;background:var(--bg)}
+tr.filled td{background:var(--ok-bg)}
+
+/* ------------------------------------------------------------------ pills */
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.75rem;font-weight:700;
+  white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.none{background:var(--bg);color:var(--dim)}
+
+/* ------------------------------------------------------------------- notes */
+.notes{margin:14px 0 0;padding:0;list-style:none;border-top:1px dashed var(--line);padding-top:10px}
+.notes li{font-size:.83rem;color:var(--dim);margin-bottom:5px;padding-left:16px;position:relative}
+.notes li:before{content:"•";position:absolute;left:4px}
+
+details.inv{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
+  padding:12px 14px;margin-bottom:12px}
+details.inv>summary{cursor:pointer;font-weight:700;list-style:none;display:flex;
+  justify-content:space-between;gap:10px;align-items:center}
+details.inv>summary::-webkit-details-marker{display:none}
+details.inv>summary:after{content:"▾";color:var(--dim)}
+details.inv[open]>summary:after{content:"▴"}
+.inv .caption{font-size:.83rem;color:var(--dim);margin:10px 0 0}
+
+.foot{border-top:1px solid var(--line);margin:32px 0 24px;padding-top:14px;
+  font-size:.83rem;color:var(--dim)}
+
+@media print{
+  .topbar-actions,.tabs,.btn{display:none!important}
+  body{background:#fff}
+  .panel,.card,details.inv{break-inside:avoid}
+  details.inv{page-break-inside:avoid}
+}
