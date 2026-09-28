@@ -1,5 +1,5 @@
 /* ============================================================================
-   sync.js — "Send to Excel"
+   sync.js — "Save on cloud"
    ----------------------------------------------------------------------------
    A static web page cannot write to a local .xlsx file, and GitHub Pages is
    read-only. So the page POSTs the entries to a tiny endpoint you control, and
@@ -67,7 +67,7 @@ async function syncNow() {
   const email = (window.SYNC_EMAIL || "").trim();
   const payload = buildSyncPayload();
   const body = JSON.stringify(payload, null, 1);
-  recordChange(`Sent ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) to Excel`);
+  recordChange(`Saved ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) to the cloud`);
 
   // No relay configured yet -> fall back to emailing the payload yourself.
   // The scheduled Automation reads this email and patches the workbook.
@@ -100,10 +100,10 @@ async function syncNow() {
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     syncStatus(
-      `Sent ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) `
-      + `at ${new Date().toLocaleTimeString()}. The spreadsheet picks these up automatically.`,
+      `Saved ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) `
+      + `to the cloud at ${new Date().toLocaleTimeString()}. The spreadsheet picks these up automatically.`,
       "msg-ok");
-    flash("Sent");
+    flash("Saved");
   } catch (err) {
     syncStatus("Could not send (" + err.message + "). Your entries are still saved in this browser — try again shortly.", "msg-error");
   } finally {

@@ -14,8 +14,8 @@
 <!-- ==================================================== SAVE CONFIRM MODAL -->
 <div id="saveLock" class="lock" hidden>
   <form id="saveLockForm" class="lock-card">
-    <h1>Confirm to send</h1>
-    <p class="dim">Enter the password to send your entries to Excel.</p>
+    <h1>Save to cloud</h1>
+    <p class="dim">Enter the password to save your entries to the cloud.</p>
     <input id="saveLockPass" type="password" placeholder="Password" autocomplete="current-password">
     <div class="lock-row">
       <button type="submit" class="btn primary">Send</button>
@@ -36,7 +36,7 @@
       <input id="yourName" class="name-input" placeholder="Your name"
              title="Your name is recorded with every change you make" autocomplete="name">
       <span id="saveState" class="save-state"></span>
-      <button id="btnSync"  class="btn primary" title="Send your entries so the spreadsheet can be updated">Send to Excel</button>
+      <button id="btnSync"  class="btn primary" title="Save your entries to the cloud so the spreadsheet can be updated">Save on cloud</button>
       <button id="btnPrint" class="btn"    title="Print or save as PDF">Print</button>
       <button id="btnReset" class="btn danger"   title="Discard your entries and reload the last Excel export">Reset</button>
     </div>
@@ -104,7 +104,7 @@
   <section id="view-changes" class="view" hidden>
     <p class="hint">Every change made on this device, with the person who made it. Type your
        name in the box at the top first. Changes are stored in this browser and travel to the
-       spreadsheet when you press <strong>Send to Excel</strong>.</p>
+       spreadsheet when you press <strong>Save on cloud</strong>.</p>
     <div id="changesList"></div>
   </section>
 
@@ -112,15 +112,15 @@
 
 <footer class="wrap foot">
   <p>Everything you type is saved in this browser as you go, and stays on this device.
-     Press <strong>Send to Excel</strong> when you want your entries carried into the
+     Press <strong>Save on cloud</strong> when you want your entries carried into the
      spreadsheet. <strong>Reset</strong> throws them away and goes back to the last export.</p>
   <p class="dim" id="syncStatus">Figures generated from the workbook on <span id="genDate"></span>.</p>
   <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
 </footer>
 
-<script src="sync-config.js?v=5"></script>
-  <script src="auth.js?v=5"></script>
-  <script src="sync.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+<script src="sync-config.js?v=6"></script>
+  <script src="auth.js?v=6"></script>
+  <script src="sync.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

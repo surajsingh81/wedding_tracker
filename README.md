@@ -42,7 +42,7 @@ git commit -m "refresh from workbook" && git push
 Everything you type is saved in this browser as you go (`localStorage`) and stays
 on this device. The toolbar has three buttons:
 
-- **Send to Excel** — posts your entries to a small relay so they can be carried
+- **Save on cloud** — posts your entries to a small relay so they can be carried
   into the spreadsheet (see below).
 - **Print** — prints the current view (handy for the front-desk room grid).
 - **Reset** — discards your entries on this device and reloads the last Excel export.
@@ -54,7 +54,7 @@ below is the way to do it.
 ## Password
 
 The page is **open for viewing** — no login. The password is only asked when
-**saving**: pressing **Send to Excel** prompts for it before anything leaves the
+**saving**: pressing **Save on cloud** prompts for it before anything leaves the
 device. Default password: `wedding2026`.
 
 > ⚠️ This is a *speed bump*, not real security. GitHub Pages is a static host, so
@@ -78,14 +78,14 @@ device. Every edit (guest names, vendor fields, add/remove vendor, reset, send)
 is recorded with your name and a timestamp, and shown on the **Changes** tab.
 
 The log lives in that browser's `localStorage` (last 300 entries), so each
-device shows its own history. When you press **Send to Excel**, the payload
+device shows its own history. When you press **Save on cloud**, the payload
 carries `author` and the full `changes` list along with the data, so the
 spreadsheet side can keep the same record.
 
 ## Getting entries into Excel
 
 A static page cannot write to a local `.xlsx` file, and GitHub Pages is
-read-only. So **Send to Excel** opens your mail app with the payload addressed
+read-only. So **Save on cloud** opens your mail app with the payload addressed
 to `surajupes@gmail.com` (set in `sync-config.js`) — just press send.
 
 To carry that email into the workbook, run the patch script on the payload:
