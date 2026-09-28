@@ -177,3 +177,6 @@ input.cell.strong { font-weight: 600; min-width: 150px; }
 }
 .name-input:focus { outline: 2px solid var(--brand, #7a4a2b); }
 .nowrap { white-space: nowrap; }
+
+/* hidden must win over the flex layout above */
+.lock[hidden] { display: none; }
