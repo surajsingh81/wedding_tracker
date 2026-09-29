@@ -231,7 +231,7 @@ function renderVendors() {
 }
 
 function renderInvoices() {
-  $("#invoicePanels").innerHTML = Object.entries(st.vendorDetails).map(([name, d]) => {
+  $("#invoicePanels").innerHTML = Object.entries(st.vendorDetails || {}).map(([name, d]) => {
     let body = "";
     if (d.kind === "invoice") {
       body = `<div class="table-scroll"><table class="grid">
@@ -406,6 +406,9 @@ function wire() {
   const res = await fetch("data.json", { cache: "no-cache" });
   base = await res.json();
   st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
+  // Always carry the latest reference details (invoices/hotel breakdowns) from the
+  // export, even when an older localStorage state predates them.
+  st.vendorDetails = base.vendorDetails;
   $("#eventName").textContent = (base.event || "").replace(/^Wedding\s*[-–]\s*/i, "") || base.event;
   $("#genDate").textContent = base.generated;
   $("#yourName").value = localStorage.getItem(NAME_KEY) || "";
