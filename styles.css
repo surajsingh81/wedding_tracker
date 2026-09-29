@@ -1,6 +1,8 @@
 /* Suraj & Priyanka — Wedding Tracker
    Sage-and-cream theme, matching the wedding invitation site
-   (Cormorant Garamond + Jost, sage pastels, hairline rules). */
+   (Cormorant Garamond + Jost, sage pastels, hairline rules).
+   v11 — legibility pass: larger inputs/tabs/buttons, zebra rows,
+   grouped vendor columns, weekday labels, stronger focus rings. */
 
 :root{
   /* pastels — same sage scale as the invitation site */
@@ -8,7 +10,7 @@
   --sage-500:#8a9a6b; --sage-700:#4e5e32;
   --blush:#f9eaee; --butter:#fbf0d9;
   --marigold:#f0a72a; --marigold-soft:#fdeccb; --marigold-deep:#b8770f;
-  --ink:#2e2b26; --ink-soft:#57524a; --ink-mute:#726c61;
+  --ink:#2e2b26; --ink-soft:#57524a; --ink-mute:#6b655a;
   --rose:#a8566b; --rose-deep:#8c4055;
   --card:#ffffff; --cream:#fbf8f1;
   --line:rgba(78,94,50,.16); --line-soft:rgba(78,94,50,.10);
@@ -33,11 +35,12 @@
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font:16px/1.6 var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+  font:16px/1.6 var(--sans);font-weight:400;-webkit-font-smoothing:antialiased}
+::selection{background:var(--sage-200)}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 h1{font-size:1.25rem;margin:0}
-h2{font-family:var(--serif);font-size:1.5rem;font-weight:500;margin:30px 0 6px;color:var(--brand)}
-h3{font-family:var(--serif);font-size:1.15rem;font-weight:500;margin:0 0 8px}
+h2{font-family:var(--serif);font-size:1.6rem;font-weight:500;margin:32px 0 8px;color:var(--brand)}
+h3{font-family:var(--serif);font-size:1.2rem;font-weight:500;margin:0 0 8px}
 a{color:var(--rose-deep)}
 
 /* ------------------------------------------------------------------ topbar */
@@ -52,12 +55,13 @@ a{color:var(--rose-deep)}
 .brand h1{font-family:var(--serif);font-weight:500;font-size:clamp(1.9rem,4.5vw,2.9rem);
   letter-spacing:.01em;color:var(--sage-700);line-height:1.12}
 .brand .amp{color:var(--sage-500);font-style:italic;font-weight:400;padding:0 .12em}
-.tagline{color:var(--ink-mute);font-size:.72rem;letter-spacing:.26em;text-transform:uppercase;margin:6px 0 0}
+.tagline{color:var(--ink-mute);font-size:.74rem;letter-spacing:.26em;text-transform:uppercase;margin:6px 0 0}
 .topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
 .btn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;
-  padding:8px 16px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:500;
+  padding:10px 18px;font-size:.82rem;cursor:pointer;font-family:inherit;font-weight:500;
   letter-spacing:.06em;transition:background .2s ease,color .2s ease,border-color .2s ease}
 .btn:hover{border-color:var(--sage-500);color:var(--sage-700)}
+.btn:focus-visible{outline:2px solid var(--sage-500);outline-offset:2px}
 .btn.primary{background:var(--sage-700);border-color:var(--sage-700);color:#fff}
 .btn.primary:hover{background:#3f4c28;border-color:#3f4c28;color:#fff}
 .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
@@ -67,76 +71,79 @@ a{color:var(--rose-deep)}
 .topbar-actions .btn.primary{background:var(--sage-700);border-color:var(--sage-700);color:#fff}
 .topbar-actions .btn.primary:hover{background:#3f4c28;border-color:#3f4c28;color:#fff}
 .topbar-actions .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
-.save-state{font-size:.76rem;color:var(--ink-mute);min-width:88px;text-align:right}
-.name-input{font:inherit;font-size:14px;font-weight:300;padding:6px 12px;width:130px;border-radius:999px;
+.save-state{font-size:.78rem;color:var(--ink-mute);min-width:88px;text-align:right}
+.name-input{font:inherit;font-size:15px;font-weight:400;padding:8px 14px;width:150px;border-radius:999px;
   background:rgba(255,255,255,.6);border:1px solid rgba(78,94,50,.25);color:var(--sage-700)}
 .name-input::placeholder{color:var(--ink-mute)}
 .name-input:focus{outline:2px solid var(--sage-500);background:#fff}
 
 /* -------------------------------------------------------------------- tabs */
 .tabs{display:flex;gap:2px;margin-top:20px;flex-wrap:wrap;border-bottom:1px solid var(--line-soft)}
-.tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;
-  cursor:pointer;color:var(--ink-mute);font-size:.86rem;font-family:inherit;font-weight:500;
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:12px 18px;
+  cursor:pointer;color:var(--ink-mute);font-size:.95rem;font-family:inherit;font-weight:500;
   letter-spacing:.04em;transition:color .2s ease,border-color .2s ease}
 .tab:hover{color:var(--sage-700)}
+.tab:focus-visible{outline:2px solid var(--sage-500);outline-offset:-2px}
 .tab.active{color:var(--sage-700);border-bottom-color:var(--sage-700)}
 
 /* ------------------------------------------------------------------- cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:12px 0}
-.card{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r);padding:16px;
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r);padding:18px;
   box-shadow:0 2px 10px -6px rgba(78,70,52,.18)}
-.card .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-mute)}
-.card .v{font-family:var(--serif);font-size:1.7rem;font-weight:500;margin-top:4px;
+.card .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-mute)}
+.card .v{font-family:var(--serif);font-size:2rem;font-weight:500;margin-top:4px;
   color:var(--sage-700);font-variant-numeric:tabular-nums}
-.card .n{font-size:.78rem;color:var(--ink-mute);margin-top:2px}
+.card .n{font-size:.8rem;color:var(--ink-mute);margin-top:2px}
 .card.ok .v{color:var(--ok)} .card.warn .v{color:var(--warn)} .card.bad .v{color:var(--bad)}
 
-.hint{color:var(--ink-mute);font-size:.88rem;margin:4px 0 14px;max-width:70ch}
-.dim{color:var(--ink-mute);font-size:.8rem}
+.hint{color:var(--ink-soft);font-size:.9rem;margin:4px 0 14px;max-width:70ch}
+.dim{color:var(--ink-mute);font-size:.82rem}
 
 /* ------------------------------------------------------------- night bars */
 .night{border:1px solid var(--line-soft);border-radius:var(--r);background:var(--card);
-  padding:12px 14px;margin-bottom:10px}
+  padding:14px 16px;margin-bottom:10px}
 .night-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
-.night-h .d{font-weight:500}
-.track{height:22px;background:var(--sage-50);border-radius:6px;overflow:hidden;display:flex}
+.night-h .d{font-weight:600}
+.track{height:26px;background:var(--sage-50);border-radius:8px;overflow:hidden;display:flex}
 .fill{background:var(--ok);height:100%}
 .fill.short{background:var(--warn)} .fill.over{background:var(--bad)}
-.night-h .s{font-size:.85rem;font-weight:500}
+.night-h .s{font-size:.9rem;font-weight:500}
 .s.ok{color:var(--ok)} .s.short{color:var(--warn)} .s.over{color:var(--bad)}
 
 /* ------------------------------------------------------------------ panels */
 .panel{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r);
-  padding:16px;margin:0 0 18px}
+  padding:18px;margin:0 0 18px}
 .panel-h{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline;
   border-bottom:1px solid var(--line-soft);padding-bottom:10px;margin-bottom:12px}
-.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--ink-mute)}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.88rem;color:var(--ink-mute)}
 .meta b{color:var(--ink);font-weight:500}
 
 /* ------------------------------------------------------------------ tables */
 .table-scroll{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r);background:var(--card)}
-table.grid{border-collapse:collapse;width:100%;font-size:.87rem}
-table.grid th,table.grid td{border-bottom:1px solid var(--line-soft);padding:7px 8px;text-align:left;
+table.grid{border-collapse:collapse;width:100%;font-size:.9rem}
+table.grid th,table.grid td{border-bottom:1px solid var(--line-soft);padding:9px 10px;text-align:left;
   vertical-align:top}
-table.grid thead th{background:var(--sage-50);font-size:.68rem;text-transform:uppercase;
+table.grid thead th{background:var(--sage-50);font-size:.7rem;text-transform:uppercase;
   letter-spacing:.08em;color:var(--sage-700);position:sticky;top:0;white-space:nowrap}
-table.grid tbody tr:hover{background:var(--sage-50)}
+/* zebra rows (guest grid + vendor table); filled/total rows keep their own tint */
+table.grid tbody tr:nth-child(even):not(.filled):not(.total) td{background:rgba(78,94,50,.04)}
+table.grid tbody tr:hover td{background:var(--sage-50)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sticky-col{position:sticky;left:0;background:var(--card);z-index:2;
-  border-right:1px solid var(--line-soft)}
-table.grid tbody tr:hover .sticky-col{background:var(--sage-50)}
+  border-right:1px solid var(--line-soft);box-shadow:4px 0 8px -6px rgba(46,43,38,.25)}
+table.grid tbody tr:hover td.sticky-col{background:var(--sage-50)}
 
 /* guest cells: two inputs stacked */
-.gcell{display:flex;flex-direction:column;gap:2px;min-width:86px}
-.gcell input{width:100%;padding:5px 6px;border:1px solid var(--line-soft);border-radius:6px;
-  background:var(--edit);color:var(--ink);font:inherit;font-size:.82rem}
-.gcell input:focus{outline:2px solid var(--sage-500);outline-offset:-1px}
+.gcell{display:flex;flex-direction:column;gap:3px;min-width:96px}
+.gcell input{width:100%;padding:7px 8px;border:1px solid var(--line-soft);border-radius:7px;
+  background:var(--edit);color:var(--ink);font:inherit;font-size:.92rem}
+.gcell input:focus{outline:2px solid var(--sage-500);outline-offset:-1px;background:var(--card)}
 .gcell input::placeholder{color:var(--ink-mute);opacity:.65}
 tr.total td{font-weight:500;background:var(--sage-50)}
 tr.filled td{background:var(--ok-bg)}
 
 /* ------------------------------------------------------------------ pills */
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.75rem;font-weight:500;
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:500;
   white-space:nowrap}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
@@ -146,7 +153,7 @@ tr.filled td{background:var(--ok-bg)}
 /* ------------------------------------------------------------------- notes */
 .notes{margin:14px 0 0;padding:0;list-style:none;border-top:1px dashed var(--sage-200);
   padding-top:10px}
-.notes li{font-size:.83rem;color:var(--ink-mute);margin-bottom:5px;padding-left:16px;position:relative}
+.notes li{font-size:.86rem;color:var(--ink-mute);margin-bottom:5px;padding-left:16px;position:relative}
 .notes li:before{content:"❧";position:absolute;left:2px;color:var(--sage-500)}
 
 details.inv{border:1px solid var(--line-soft);border-radius:var(--r);background:var(--card);
@@ -159,7 +166,7 @@ details.inv[open]>summary:after{content:"▴"}
 .inv .caption{font-size:.83rem;color:var(--ink-mute);margin:10px 0 0}
 
 .foot{border-top:1px solid var(--sage-200);margin:32px 0 24px;padding-top:14px;
-  font-size:.83rem;color:var(--ink-mute)}
+  font-size:.85rem;color:var(--ink-mute)}
 .foot .love{color:var(--sage-700);font-weight:500}
 
 @media print{
@@ -175,20 +182,37 @@ details.inv[open]>summary:after{content:"▴"}
 /* ---------------------------------------------------------- vendor editing */
 .vendor-actions { margin: 14px 0 4px; }
 .row-del {
-  padding: 2px 9px; font-size: 17px; line-height: 1.1;
+  padding: 3px 10px; font-size: 18px; line-height: 1.1;
   color: #b3261e; border-color: #f0c4c0; background: #fdf1f0;
 }
 .row-del:hover { background: #b3261e; color: #fff; border-color: #b3261e; }
 td.vstat { white-space: nowrap; }
 input.cell {
   width: 100%; min-width: 90px; border: 1px solid var(--line-soft); border-radius: 7px;
-  padding: 6px 8px; font: inherit; font-size: 14px;
+  padding: 8px 10px; font: inherit; font-size: 15px;
   background: var(--cream); color: inherit;
 }
-input.cell:focus { outline: 2px solid var(--sage-500); outline-offset: 1px; background: #fff; }
-input.cell.strong { font-weight: 500; min-width: 150px; }
+input.cell:focus { outline: 2px solid var(--sage-500); outline-offset: 1px; background: var(--card);
+  box-shadow: 0 0 0 3px rgba(138,154,107,.18); }
+input.cell.strong { font-weight: 600; min-width: 150px; }
 #vendorTable th, #vendorTable td { white-space: nowrap; }
 #vendorTable input.cell[data-f="notes"], #vendorTable input.cell[data-f="address"] { min-width: 190px; }
+
+/* vendor column groups — tinted so the eye can jump to money / payment */
+table.grid thead th.g-money{background:var(--sage-100)}
+table.grid thead th.g-pay{background:var(--butter)}
+table.grid thead th.g-detail{background:var(--sage-50)}
+table.grid thead th.g-money,table.grid thead th.g-pay,table.grid thead th.g-detail{
+  border-left:1px solid var(--line)}
+#vendorTable td.g-money,#vendorTable td.g-pay,#vendorTable td.g-detail{
+  border-left:1px solid var(--line-soft)}
+#vendorTable td.g-money input.cell{background:rgba(138,154,107,.12)}
+#vendorTable td.g-pay input.cell{background:rgba(240,167,42,.09)}
+#vendorTable td.g-detail input.cell{background:rgba(78,94,50,.05)}
+#vendorTable td.g-money input.cell:focus,
+#vendorTable td.g-pay input.cell:focus,
+#vendorTable td.g-detail input.cell:focus{background:var(--card)}
+
 #syncStatus.msg-ok    { color: #1c6b3a; }
 #syncStatus.msg-warn  { color: #a35a00; }
 #syncStatus.msg-error { color: #b3261e; }
@@ -240,4 +264,14 @@ input.cell.strong { font-weight: 500; min-width: 150px; }
   .name-input{background:rgba(255,255,255,.1);border-color:rgba(238,240,230,.3);color:#eef0e6}
   .name-input::placeholder{color:#a8b294}
   .name-input:focus{outline:2px solid #c9d8a8;background:rgba(255,255,255,.16)}
+
+  /* dark-mode table tints */
+  table.grid tbody tr:nth-child(even):not(.filled):not(.total) td{background:rgba(238,240,230,.03)}
+  table.grid thead th.g-money{background:#35402a}
+  table.grid thead th.g-pay{background:#3d2f16}
+  table.grid thead th.g-detail{background:#2a3320}
+  #vendorTable td.g-money input.cell{background:rgba(168,192,138,.12)}
+  #vendorTable td.g-pay input.cell{background:rgba(232,192,122,.10)}
+  #vendorTable td.g-detail input.cell{background:rgba(238,240,230,.05)}
+  input.cell:focus{box-shadow:0 0 0 3px rgba(168,192,138,.2)}
 }

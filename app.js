@@ -14,6 +14,12 @@ let st   = null;   // live state = base + local edits
 const inr = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function wd(s) {                       // "08-Dec-2026" -> "Tue 08 Dec"
+  const [d, m, y] = String(s).split("-");
+  const dt = new Date(`${m} ${d}, ${y}`);
+  return isNaN(dt) ? s : `${WD[dt.getDay()]} ${d} ${m}`;
+}
 
 function filledRooms(h, ni) {                    // rooms occupied on night ni
   let n = 0;
@@ -128,7 +134,7 @@ function renderOverview() {
       const s = nightStatus(h, i);
       const pct = s.need ? Math.min(100, (s.f / s.need) * 100) : 0;
       return `<div class="night">
-        <div class="night-h"><span class="d">${esc(n)}</span>
+        <div class="night-h"><span class="d">${esc(wd(n))}</span>
           <span class="s ${s.cls}">${s.f} of ${s.need} rooms &middot; ${esc(s.txt)}</span></div>
         <div class="track"><div class="fill ${s.cls}" style="width:${pct}%"></div></div>
       </div>`;
@@ -137,7 +143,7 @@ function renderOverview() {
 
 function renderRooms() {
   $("#hotelPanels").innerHTML = st.hotels.map(h => {
-    const cols = h.nights.map(n => `<th class="num">${esc(n.replace("-2026", ""))}</th>`).join("");
+    const cols = h.nights.map(n => `<th class="num">${esc(wd(n))}</th>`).join("");
     const rows = h.grid.map((row, ri) => `
       <tr>
         <td class="sticky-col">Room ${ri + 1}</td>
@@ -191,31 +197,31 @@ function renderRooms() {
 }
 
 const VCOLS = [
-  ["name",       "Vendor",    "text"],
-  ["contact",    "Contact",   "text"],
-  ["phone",      "Phone",     "tel"],
-  ["whatsapp",   "WhatsApp",  "text"],
-  ["event",      "Event",     "text"],
-  ["eventDate",  "Event date","text"],
-  ["quoted",     "Quoted",    "number"],
-  ["paid",       "Paid",      "number"],
-  ["paymentMode","Pay mode",  "text"],
-  ["ref",        "UTR / Ref", "text"],
-  ["paidOn",     "Paid on",   "text"],
-  ["address",    "Address",   "text"],
-  ["notes",      "Notes",     "text"],
+  ["name",       "Vendor",     "text",   "g-id"],
+  ["contact",    "Contact",    "text",   "g-contact"],
+  ["phone",      "Phone",      "tel",    "g-contact"],
+  ["whatsapp",   "WhatsApp",   "text",   "g-contact"],
+  ["event",      "Event",      "text",   "g-event"],
+  ["eventDate",  "Event date", "text",   "g-event"],
+  ["quoted",     "Quoted",     "number", "g-money"],
+  ["paid",       "Paid",       "number", "g-money"],
+  ["paymentMode","Pay mode",   "text",   "g-pay"],
+  ["ref",        "UTR / Ref",  "text",   "g-pay"],
+  ["paidOn",     "Paid on",    "text",   "g-pay"],
+  ["address",    "Address",    "text",   "g-detail"],
+  ["notes",      "Notes",      "text",   "g-detail"],
 ];
 
 function renderVendors() {
   $("#vendorTable").innerHTML =
-    `<thead><tr>${VCOLS.map(([k, l, t]) =>
-      `<th class="${t === "number" ? "num" : ""}">${l}</th>`).join("")}<th></th></tr></thead>
+    `<thead><tr>${VCOLS.map(([k, l, t, g]) =>
+      `<th class="${t === "number" ? "num " : ""}${g}">${l}</th>`).join("")}<th></th></tr></thead>
      <tbody>${st.vendors.map((v, i) => {
        const s = vendorStatus(v);
        return `<tr>
-         <td class="sticky-col"><input class="cell strong" type="text" value="${esc(v.name)}"
+         <td class="sticky-col g-id"><input class="cell strong" type="text" value="${esc(v.name)}"
              data-v="${i}" data-f="name" aria-label="Vendor name"></td>
-         ${VCOLS.slice(1).map(([k, l, t]) => `<td class="${t === "number" ? "num" : ""}">
+         ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}">
             <input class="cell" type="${t === "number" ? "number" : "text"}"
                    ${t === "number" ? 'min="0" step="500"' : ""}
                    value="${esc(v[k])}" data-v="${i}" data-f="${k}"
