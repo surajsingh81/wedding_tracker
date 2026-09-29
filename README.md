@@ -82,22 +82,65 @@ device shows its own history. When you press **Save on cloud**, the payload
 carries `author` and the full `changes` list along with the data, so the
 spreadsheet side can keep the same record.
 
-## Getting entries into Excel
+## Getting entries into Excel — automatic ("Save on cloud")
 
 A static page cannot write to a local `.xlsx` file, and GitHub Pages is
-read-only. So **Save on cloud** opens your mail app with the payload addressed
-to `surajupes@gmail.com` (set in `sync-config.js`) — just press send.
+read-only. So the page POSTs the payload to a tiny relay, and a GitHub Action
+patches the workbook and re-exports `data.json` — no manual steps.
 
-To carry that email into the workbook, run the patch script on the payload:
+The pipeline:
+
+```
+Save on cloud  →  relay (Apps Script web app)  →  inbox/update-<ts>.json
+     →  GitHub Action (apply_payload.py + export_site_data.py)
+     →  workbook + data.json committed  →  Pages rebuilds  →  site shows fresh data
+```
+
+### One-time setup (~5 minutes)
+
+1. **GitHub token** — Settings → Developer settings → Fine-grained tokens →
+   New token: Repository access *only* `surajsingh81/wedding_tracker`,
+   Permissions → Contents: **Read and write**. Copy the token.
+2. **Deploy the relay** — open `script.google.com` → New project → paste the
+   whole of `tools/apps-script-endpoint.js` → Save.
+3. **Script properties** — Project Settings (gear) → Script properties → Add:
+   `GITHUB_TOKEN` = the token from step 1 (REPO and BRANCH are optional;
+   defaults `surajsingh81/wedding_tracker` and `main`).
+4. **Deploy** — Deploy → New deployment → Web app: *Execute as: Me*,
+   *Who has access: Anyone* → Deploy → copy the `/exec` URL.
+5. **Point the site at it** — in `sync-config.js` set
+   `window.SYNC_ENDPOINT = "https://script.google.com/macros/s/.../exec";`
+   then commit and push.
+
+That's it. **Save on cloud** now writes straight into the Excel file in the
+repo, and a page reload reads the freshly exported `data.json`.
+
+### Fallback (no relay configured)
+
+With `SYNC_ENDPOINT` empty, **Save on cloud** opens your mail app with the
+payload addressed to `surajupes@gmail.com` (set in `sync-config.js`) — press
+send, then apply the payload manually:
 
 ```bash
 python3 tools/apply_payload.py payload.json --export
 ```
 
-It backs up the workbook first, refuses to run while Excel has the file open,
-writes guest names into the grids (full state, so clearing a name clears the
-cell), updates vendor rows, and appends new vendors as fresh rows above TOTAL
-with the SUM ranges extended.
+### The GitHub Action
+
+`.github/workflows/apply-inbox.yml` runs on every push touching `inbox/*.json`:
+
+```bash
+python3 tools/apply_payload.py --inbox-dir inbox --workbook Wedding_Expense_Tracker_Dec2026.xlsx --export --no-backup
+```
+
+It applies every payload in `inbox/` (sorted), deletes them, re-exports
+`data.json` from the patched workbook, and commits both. Git history is the
+backup, so no extra backup files are kept in the repo.
+
+The patch script backs up the workbook first when run locally, refuses to run
+while Excel has the file open, writes guest names into the grids (full state,
+so clearing a name clears the cell), updates vendor rows, and appends new
+vendors as fresh rows above TOTAL with the SUM ranges extended.
 
 The payload shape is documented in `sync.js` (`buildSyncPayload()`): a flat list
 of guest entries (hotel, room, night, slot, name) plus the full vendor list, with

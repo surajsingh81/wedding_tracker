@@ -2,16 +2,18 @@
    sync.js — "Save on cloud"
    ----------------------------------------------------------------------------
    A static web page cannot write to a local .xlsx file, and GitHub Pages is
-   read-only. So the page POSTs the entries to a tiny endpoint you control, and
-   that endpoint forwards them to the workbook.
+   read-only. So the page POSTs the entries to a tiny relay endpoint, which
+   drops them into inbox/ in the repo; a GitHub Action then patches the Excel
+   workbook and re-exports data.json automatically.
 
-   TO WIRE THIS UP, put the URL of your endpoint in sync-config.js:
+   TO WIRE THIS UP, put the URL of your relay in sync-config.js:
 
        window.SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfy.../exec";
        window.SYNC_EMAIL   = "you@example.com";
 
-   It must accept a JSON POST (CORS allowed) and can be as simple as a Google
-   Apps Script web app — see README.md, "Getting entries into Excel".
+   The relay must accept a JSON POST. The bundled Apps Script relay
+   (tools/apps-script-endpoint.js) commits the payload to inbox/ — see
+   README.md, "Save on cloud" for the one-time setup.
    ========================================================================== */
 
 function syncStatus(msg, cls) {
@@ -70,7 +72,8 @@ async function syncNow() {
   recordChange(`Saved ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) to the cloud`);
 
   // No relay configured yet -> fall back to emailing the payload yourself.
-  // The scheduled Automation reads this email and patches the workbook.
+  // The payload is the same JSON the relay would receive, so it can be applied
+  // with tools/apply_payload.py.
   if (!url) {
     if (!email) {
       syncStatus(
@@ -93,9 +96,11 @@ async function syncNow() {
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = "Sending…";
   try {
+    // text/plain keeps this a "simple request" — no CORS preflight, which the
+    // Apps Script relay cannot answer. It reads the raw body either way.
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body,
     });
     if (!res.ok) throw new Error("HTTP " + res.status);

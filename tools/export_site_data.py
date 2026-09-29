@@ -7,13 +7,22 @@ Every row is located by LABEL, not by hardcoded number, so hand-edits in Excel
 
 import json
 import re
+import sys
 import unicodedata
 from pathlib import Path
 from openpyxl import load_workbook
 
-ROOT = Path(__file__).resolve().parents[2]
-XLSX = ROOT / "Wedding_Expense_Tracker_Dec2026.xlsx"
-OUT = ROOT / "wedding-tracker-site" / "data.json"
+# Paths are relative to this script so the same file works in the repo and in
+# the GitHub Action (where the checkout root is the repo root).
+SITE = Path(__file__).resolve().parent.parent
+XLSX = SITE / "Wedding_Expense_Tracker_Dec2026.xlsx"
+OUT = SITE / "data.json"
+
+argv = sys.argv[1:]
+if "--workbook" in argv:
+    XLSX = Path(argv[argv.index("--workbook") + 1])
+if "--out" in argv:
+    OUT = Path(argv[argv.index("--out") + 1])
 
 NIGHT_COLS = ["C", "D", "E", "F", "G", "H"]
 

@@ -1,0 +1,48 @@
+name: Apply inbox payloads to workbook
+
+# "Save on cloud" pipeline:
+#   1. The site POSTs the payload to a tiny relay (Apps Script / Worker).
+#   2. The relay commits it to inbox/update-<timestamp>.json in this repo.
+#   3. This workflow runs, patches the Excel workbook with the payload,
+#      re-exports data.json from the workbook, and pushes both back.
+#   4. GitHub Pages rebuilds; the site reloads fresh data.json.
+#
+# The workflow's own commit removes the inbox files, which re-triggers this
+# workflow once; that run finds an empty inbox and exits without pushing.
+
+on:
+  push:
+    branches: [main]
+    paths: ["inbox/*.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install openpyxl
+        run: pip install openpyxl
+
+      - name: Apply payloads and re-export data.json
+        run: python tools/apply_payload.py --inbox-dir inbox --workbook Wedding_Expense_Tracker_Dec2026.xlsx --export --no-backup
+
+      - name: Commit and push
+        run: |
+          git config user.name "wedding-sync[bot]"
+          git config user.email "wedding-sync[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Apply inbox payloads to workbook"
+            git push
+          fi
