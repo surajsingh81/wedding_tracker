@@ -1,7 +1,6 @@
 /* Where "Save on cloud" delivers the entries.
-   Leave SYNC_ENDPOINT empty to fall back to emailing the payload.
-   To switch on true auto-save to Excel, deploy tools/apps-script-endpoint.js
-   as a Google Apps Script web app and paste its /exec URL here
-   (see README.md -> "Save on cloud"). */
-window.SYNC_ENDPOINT = "";
+   The Apps Script relay (tools/apps-script-endpoint.js) commits the payload
+   to inbox/ in the repo; the GitHub Action patches the Excel and re-exports
+   data.json automatically. */
+window.SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbwi_9kPwUv1lrUzOlgNBUix00uaIBIbsb-ar-3IZRgkKPn4ebVVmsSypOu2FhgA4w_TuA/exec";
 window.SYNC_EMAIL   = "surajupes@gmail.com";
