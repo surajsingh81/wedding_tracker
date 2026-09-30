@@ -109,6 +109,7 @@ async function syncNow() {
       + `to the cloud at ${new Date().toLocaleTimeString()}. The spreadsheet picks these up automatically.`,
       "msg-ok");
     flash("Saved");
+    watchSync();   // poll the live data until the workbook reflects this save
   } catch (err) {
     syncStatus("Could not send (" + err.message + "). Your entries are still saved in this browser — try again shortly.", "msg-error");
   } finally {

@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import unicodedata
+from datetime import datetime
 from pathlib import Path
 from openpyxl import load_workbook
 
@@ -163,7 +164,7 @@ details["Nirmal's Executive"] = {
 report.append("details: " + ", ".join(details))
 
 data = {
-    "generated": "2026-09-28",
+    "generated": datetime.now().strftime("%Y-%m-%d"),
     "event": "Wedding - December 2026",
     "hotels": hotels,
     "vendors": vendors,

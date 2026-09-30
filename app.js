@@ -7,8 +7,48 @@ const NAME_KEY = "tracker-name-v1";
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
+// Live data source: the GitHub API serves data.json the moment the Action
+// commits it (no Pages rebuild wait). Falls back to the Pages copy.
+const DATA_API = "https://api.github.com/repos/surajsingh81/wedding_tracker/contents/data.json";
+
 let base = null;   // last Excel export (immutable baseline)
 let st   = null;   // live state = base + local edits
+
+async function loadData() {
+  try {
+    const r = await fetch(DATA_API, { cache: "no-cache" });
+    if (r.ok) {
+      const meta = await r.json();
+      return JSON.parse(atob(meta.content.replace(/\s+/g, "")));
+    }
+  } catch (e) { /* fall back to the Pages copy */ }
+  const res = await fetch("data.json", { cache: "no-cache" });
+  return res.json();
+}
+
+// Signature of the editable data — used to detect when the workbook has
+// absorbed a save (the API copy then matches the live state).
+function dataSig(d) {
+  return JSON.stringify([
+    d.hotels.map(h => [h.id, h.grid]),
+    d.vendors.map(v => [v.row, v.name, v.quoted, v.paid]),
+  ]);
+}
+
+// After a successful save, poll the API until the workbook reflects it.
+async function watchSync() {
+  const want = dataSig(st);
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 10000));
+    try {
+      if (dataSig(await loadData()) === want) {
+        syncStatus("✓ Synced to Excel — the workbook now has your changes.", "msg-ok");
+        return;
+      }
+    } catch (e) { /* keep polling */ }
+  }
+  syncStatus("Saved to the cloud — the workbook update can take a minute. Refresh to see it.", "msg-ok");
+}
 
 /* ------------------------------------------------------------------ helpers */
 const inr = n => "₹" + Number(n || 0).toLocaleString("en-IN");
@@ -409,8 +449,7 @@ function wire() {
 
 /* --------------------------------------------------------------------- boot */
 (async function () {
-  const res = await fetch("data.json", { cache: "no-cache" });
-  base = await res.json();
+  base = await loadData();
   st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
   // Always carry the latest reference details (invoices/hotel breakdowns) from the
   // export, even when an older localStorage state predates them.
