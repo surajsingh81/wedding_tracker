@@ -105,10 +105,10 @@ async function syncNow() {
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     syncStatus(
-      `Saved ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) `
-      + `to the cloud at ${new Date().toLocaleTimeString()}. The spreadsheet picks these up automatically.`,
+      `✓ Sent ${payload.guests.length} guest name(s) and ${payload.vendors.length} vendor row(s) `
+      + `at ${new Date().toLocaleTimeString()}. Excel is picking these up now — you can carry on editing.`,
       "msg-ok");
-    flash("Saved");
+    flash("Sent");
     watchSync();   // poll the live data until the workbook reflects this save
   } catch (err) {
     syncStatus("Could not send (" + err.message + "). Your entries are still saved in this browser — try again shortly.", "msg-error");

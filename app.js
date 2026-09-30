@@ -2,6 +2,7 @@
    A fresh data.json (exported from the workbook) is the baseline to reset to. */
 
 const KEY = "wedding-tracker-v1";
+const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in Excel
 const CHANGES_KEY = "tracker-changes-v1";
 const NAME_KEY = "tracker-name-v1";
 const $  = (s, r = document) => r.querySelector(s);
@@ -19,35 +20,63 @@ async function loadData() {
     const r = await fetch(DATA_API, { cache: "no-cache" });
     if (r.ok) {
       const meta = await r.json();
-      return JSON.parse(atob(meta.content.replace(/\s+/g, "")));
+      if (meta.content) {
+        // data.json is UTF-8 (₹, en-dashes, names). atob() alone would decode
+        // the bytes as Latin-1 and mangle every non-ASCII character, so go
+        // through bytes + TextDecoder.
+        const bin = atob(meta.content.replace(/\s+/g, ""));
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder("utf-8").decode(bytes));
+      }
     }
   } catch (e) { /* fall back to the Pages copy */ }
   const res = await fetch("data.json", { cache: "no-cache" });
   return res.json();
 }
 
-// Signature of the editable data — used to detect when the workbook has
+// Signature of every editable field — used to detect when the workbook has
 // absorbed a save (the API copy then matches the live state).
 function dataSig(d) {
   return JSON.stringify([
     d.hotels.map(h => [h.id, h.grid]),
-    d.vendors.map(v => [v.row, v.name, v.quoted, v.paid]),
+    d.vendors.map(v => [v.row, v.name, v.contact, v.phone, v.whatsapp,
+      v.event, v.eventDate, v.quoted, v.paid, v.paymentMode,
+      v.ref, v.paidOn, v.address, v.notes, v.isNew]),
   ]);
 }
 
+// Excel is the source of truth. Once it has absorbed our changes, adopt its
+// export and drop the stale browser snapshot, so the next load starts from
+// Excel instead of replaying an old local state over fresh data.
+function adoptFresh(d) {
+  base = d;
+  st = JSON.parse(JSON.stringify(d));
+  localStorage.removeItem(KEY);
+  localStorage.setItem(PENDING_KEY, "0");
+  $("#genDate").textContent = d.generated;
+  renderAll();
+}
+
 // After a successful save, poll the API until the workbook reflects it.
+// The Action itself only takes ~12s, so poll every 3s for the first half
+// minute and then back off — with the elapsed time shown, so the wait is
+// never a mystery.
 async function watchSync() {
   const want = dataSig(st);
-  for (let i = 0; i < 12; i++) {
-    await new Promise(r => setTimeout(r, 10000));
-    try {
-      if (dataSig(await loadData()) === want) {
-        syncStatus("✓ Synced to Excel — the workbook now has your changes.", "msg-ok");
-        return;
-      }
-    } catch (e) { /* keep polling */ }
+  const t0 = Date.now();
+  const elapsed = () => `${Math.round((Date.now() - t0) / 1000)}s`;
+  for (let i = 0; i < 24; i++) {
+    syncStatus(`✓ Sent to the cloud. Excel is absorbing it — ${elapsed()}…`, "msg-ok");
+    await new Promise(r => setTimeout(r, i < 9 ? 3000 : 8000));
+    let fresh = null;
+    try { fresh = await loadData(); } catch (e) { continue; }
+    if (dataSig(fresh) === want) {
+      adoptFresh(fresh);
+      syncStatus(`✓ Synced to Excel — the workbook has your changes (${elapsed()}).`, "msg-ok");
+      return;
+    }
   }
-  syncStatus("Saved to the cloud — the workbook update can take a minute. Refresh to see it.", "msg-ok");
+  syncStatus("Saved to the cloud — Excel is still catching up. Reload in a moment to see it.", "msg-ok");
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -83,6 +112,7 @@ function vendorStatus(v) {
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(st));
+    localStorage.setItem(PENDING_KEY, "1");   // not yet in Excel
     flash("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
   } catch (e) { flash("Could not save (storage full?)"); }
 }
@@ -442,7 +472,7 @@ function wire() {
 
   $("#btnReset").onclick = () => {
     if (!confirm("Discard your edits on this device and reload the last Excel export?")) return;
-    localStorage.removeItem(KEY); st = JSON.parse(JSON.stringify(base)); renderAll(); flash("Reset");
+    localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0"); st = JSON.parse(JSON.stringify(base)); renderAll(); flash("Reset");
     recordChange("Reset — discarded local edits and reloaded the last Excel export");
   };
 }
@@ -450,10 +480,21 @@ function wire() {
 /* --------------------------------------------------------------------- boot */
 (async function () {
   base = await loadData();
-  st = JSON.parse(localStorage.getItem(KEY) || "null") || JSON.parse(JSON.stringify(base));
-  // Always carry the latest reference details (invoices/hotel breakdowns) from the
-  // export, even when an older localStorage state predates them.
-  st.vendorDetails = base.vendorDetails;
+  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+  // "1" = edits not yet pushed to Excel. null = a browser that predates the
+  // marker, whose snapshot we keep rather than silently dropping.
+  const pending = localStorage.getItem(PENDING_KEY);
+  if (saved && pending !== "0") {
+    st = saved;
+    // Always carry the latest reference details (invoices/hotel breakdowns)
+    // from the export, even when an older snapshot predates them.
+    st.vendorDetails = base.vendorDetails;
+  } else {
+    // Nothing outstanding: Excel is the source of truth, so drop the snapshot.
+    st = JSON.parse(JSON.stringify(base));
+    localStorage.removeItem(KEY);
+    localStorage.setItem(PENDING_KEY, "0");
+  }
   $("#eventName").textContent = (base.event || "").replace(/^Wedding\s*[-–]\s*/i, "") || base.event;
   $("#genDate").textContent = base.generated;
   $("#yourName").value = localStorage.getItem(NAME_KEY) || "";
