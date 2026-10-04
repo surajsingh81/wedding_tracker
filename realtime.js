@@ -84,7 +84,7 @@
     }
     const result = await response.json();
     accessPassword = password;
-    return result.data;
+    return result;
   }
 
   function reconcile(next, prior = remoteState) {
@@ -111,17 +111,18 @@
     const state = clone(app.getState());
     const patches = remoteState ? patchesBetween(remoteState, state) : [];
     if (!remoteState) {
-      const data = await invokeWriter(
+      const result = await invokeWriter(
         "initialize", { data: state },
         "Enter the live-edit password to connect this device.");
-      reconcile(data, state);
-      return;
+      reconcile(result.data, state);
+      return result.backupQueued === true;
     }
     if (!patches.length) return;
-    const data = await invokeWriter(
+    const result = await invokeWriter(
       "patch", { patches, author: app.getName() || "Anonymous" },
       "Enter the live-edit password to save your changes.");
-    reconcile(data);
+    reconcile(result.data);
+    return result.backupQueued === true;
   }
 
   async function drain() {
@@ -132,8 +133,10 @@
       if (!await app.ensureName(
         "Enter your name so other editors can see who made each change.", true))
         throw new Error("Live save cancelled");
-      await persist();
-      app.status("✓ Changes saved and shared live.", "msg-ok");
+      const backupQueued = await persist();
+      app.status(backupQueued
+        ? "✓ Shared live; Excel backup queued in the background."
+        : "✓ Changes saved and shared live.", "msg-ok");
     } catch (error) {
       if (error.message !== "Live save cancelled")
         app.status(error.message, "msg-error");

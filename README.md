@@ -82,6 +82,13 @@ browser tab. It keeps the password only in memory for that tab. The shared data
 is readable by anyone who can reach the site, as it already is in the published
 `data.json`; do not put private information in it.
 
+After each successful live save, the Edge Function also posts a full snapshot to
+the existing Apps Script relay in the background. The `inbox/*.json` workflow
+applies that snapshot to the Excel workbook and re-exports `data.json` on
+`main`. This backup is asynchronous; Supabase remains the live source of truth.
+If the relay or workbook workflow fails, the Edge Function logs the error and
+the live database save still succeeds.
+
 ## Who changed what
 
 Type your name in the **Your name** box at the top — it is remembered on that
