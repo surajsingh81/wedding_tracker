@@ -52,6 +52,7 @@ by the live-edit password before writing to Supabase. Unsynced edits are
 discarded on page refresh; sync them before reloading or closing the page. Other
 open browsers receive committed database changes through Supabase Realtime, with
 a periodic fresh read to catch up after a mobile device suspends its connection.
+Sync progress, success, and failures are shown in a visible status toast.
 **Reset** discards this device's pending edits and restores the latest shared
 state. Excel remains an asynchronous backup, not the live source of truth.
 

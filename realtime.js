@@ -148,6 +148,7 @@
       const password = await askForPassword(
         "Enter the live-edit password to share your saved changes.");
       app.setSyncBusy(true);
+      app.status("Sending changes to the shared tracker…", "msg-ok");
       const state = clone(app.getState());
       let result;
       if (!remoteState) {

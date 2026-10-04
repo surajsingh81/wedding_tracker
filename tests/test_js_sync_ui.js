@@ -6,7 +6,7 @@ var E = H.env({ deps: { setTimeout: function () { return 1; } } });
 var A = H.load(["app.js", "sync.js"], E.deps, [
   "setSt:function(v){st=v;}",
   "setBase:function(v){base=v;}",
-  "save", "setSaveIndicator", "renderAll",
+  "save", "setSaveIndicator", "reportRealtimeStatus", "renderAll",
 ]);
 var S = new H.Suite("SYNC UI / status and shared tabs");
 
@@ -49,6 +49,22 @@ S.eq(E.doc.querySelector("#btnSync").dataset.pending, "0",
      "the desktop sync highlight clears when synced");
 S.eq(E.doc.querySelector("#btnSyncBar").dataset.pending, "0",
      "the mobile sync highlight clears when synced");
+E.doc.querySelector("#syncToast").hidden = true;
+A.reportRealtimeStatus("Sending changes to the shared tracker…", "msg-ok");
+S.eq(E.doc.querySelector("#syncToast").hidden, false,
+     "sending feedback appears in the visible sync toast");
+S.eq(E.doc.querySelector("#syncToast").textContent, "Sending changes to the shared tracker…",
+     "the toast explains that the sync request is in progress");
+A.reportRealtimeStatus("The live-edit password was rejected. Try again.", "msg-error");
+S.eq(E.doc.querySelector("#syncToast").hidden, false,
+     "sync failures are visible without scrolling to the footer");
+S.eq(E.doc.querySelector("#syncToast").textContent,
+     "The live-edit password was rejected. Try again.",
+     "the toast shows the exact password rejection feedback");
+A.reportRealtimeStatus("Data Synced — no unsaved syncs remain.", "msg-ok");
+S.eq(E.doc.querySelector("#syncToast").textContent,
+     "Data Synced — no unsaved syncs remain.",
+     "successful sync confirmation is visible in the toast");
 
 A.renderAll();
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("Sync Test Vendor"),

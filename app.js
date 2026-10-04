@@ -307,6 +307,21 @@ function setSyncBusy(busy) {
   }
 }
 
+let syncToastTimer = 0;
+function reportRealtimeStatus(message, cls) {
+  syncStatus(message, cls);
+  const shouldShow = cls === "msg-error" || message.startsWith("Data Synced")
+    || message.startsWith("Sending changes") || message.startsWith("Sync cancelled")
+    || message.startsWith("Shared updates received");
+  const toast = $("#syncToast");
+  if (!toast || !shouldShow) return;
+  clearTimeout(syncToastTimer);
+  toast.textContent = message;
+  toast.className = `sync-toast ${cls || ""}`;
+  toast.hidden = false;
+  syncToastTimer = setTimeout(() => { toast.hidden = true; }, 7000);
+}
+
 /* ------------------------------------------------------------- the name gate
    Sync asks for the user's name first, then requests the password. */
 let nameAsked = false;
@@ -1037,6 +1052,6 @@ function wire() {
     setPending,
     setSyncBusy,
     render: renderAll,
-    status: syncStatus,
+    status: reportRealtimeStatus,
   });
 })();
