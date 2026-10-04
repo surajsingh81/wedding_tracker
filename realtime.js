@@ -7,6 +7,9 @@
   let remoteState = null;
   let writing = false;
   let app = null;
+  let refreshTimer = 0;
+  let refreshInFlight = false;
+  const REFRESH_INTERVAL = 15000;
 
   const clone = value => JSON.parse(JSON.stringify(value));
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -56,6 +59,27 @@
     if (!response.ok) throw new Error(`Supabase read failed (HTTP ${response.status})`);
     const rows = await response.json();
     return rows.length ? rows[0].data : null;
+  }
+
+  async function refreshShared() {
+    if (!app || refreshInFlight || document.visibilityState === "hidden") return;
+    refreshInFlight = true;
+    try {
+      const next = await readRow();
+      if (next) reconcile(next);
+    } catch (error) {
+      app.status(`Could not refresh shared data: ${error.message}`, "msg-error");
+    } finally {
+      refreshInFlight = false;
+    }
+  }
+
+  function scheduleRefresh() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      await refreshShared();
+      scheduleRefresh();
+    }, REFRESH_INTERVAL);
   }
 
   async function askForPassword(message) {
@@ -171,6 +195,12 @@
     start(options) {
       app = options;
       if (!window.SUPABASE_URL || !window.SUPABASE_PUBLIC_KEY) return;
+      addEventListener("focus", refreshShared);
+      addEventListener("online", refreshShared);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") refreshShared();
+      });
+      scheduleRefresh();
       if (!window.supabase?.createClient) {
         app.status("Realtime library did not load. Reload to reconnect.", "msg-error");
         return;
@@ -190,6 +220,7 @@
             app.status("Realtime connection failed. Check Supabase setup and reload.", "msg-error");
         });
     },
+    refresh: refreshShared,
     syncNow,
   };
 })();

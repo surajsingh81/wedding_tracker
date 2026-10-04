@@ -32,6 +32,7 @@ E.deps.fetch = function () { return FETCH.apply(null, arguments); };
 
 var A = H.load(["app.js", "sync.js", "auth.js"], E.deps, [
   "ensureName", "currentName", "setName", "nameMissing", "getChanges", "recordChange",
+  "discardLocalDraft",
   "renderRooms", "renderRoomsDesktop", "renderRoomsMobile", "renderAll",
   "mSel", "mRoom", "mobileChips", "mobileStatsPills", "paintPanelTotals",
   "refreshRows", "refreshMobile", "onEditInput", "save", "flushSave",
@@ -99,6 +100,18 @@ function tick(n) {
 
 var STAGE = "suite-build";
 var S = [];
+
+/* ------------------------------------------------------- refresh discards drafts */
+STAGE = "refresh-discards-local-draft";
+var refreshSuite = new H.Suite("FUNCTIONAL / refresh starts from shared data");
+E.storage.setItem("wedding-tracker-v1", JSON.stringify({ stale: true }));
+E.storage.setItem("wedding-tracker-pending-v1", "1");
+A.discardLocalDraft();
+refreshSuite.eq(E.storage.getItem("wedding-tracker-v1"), null,
+                "refresh removes the saved local draft");
+refreshSuite.eq(E.storage.getItem("wedding-tracker-pending-v1"), "0",
+                "refresh clears the unsynced marker");
+S.push(refreshSuite);
 
 /* ------------------------------------------------------- 1. the name gate */
 STAGE = "name-gate";

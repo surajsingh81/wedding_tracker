@@ -48,10 +48,12 @@ git commit -m "refresh from workbook" && git push
 
 Edits are saved in the browser immediately and stay on that device until the
 editor clicks **Sync changes**. The app then asks for the editor name followed
-by the live-edit password before writing to Supabase. Other open browsers
-receive committed database changes through Supabase Realtime. **Reset** discards
-this device's pending edits and restores the latest shared state. Excel remains
-an asynchronous backup, not the live source of truth.
+by the live-edit password before writing to Supabase. Unsynced edits are
+discarded on page refresh; sync them before reloading or closing the page. Other
+open browsers receive committed database changes through Supabase Realtime, with
+a periodic fresh read to catch up after a mobile device suspends its connection.
+**Reset** discards this device's pending edits and restores the latest shared
+state. Excel remains an asynchronous backup, not the live source of truth.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.

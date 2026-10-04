@@ -28,8 +28,7 @@ var E = H.env({
   },
   deps: {
     setTimeout: function (fn) {
-      pendingTimers.push(fn);
-      return ++timerId;
+      return 1;
     },
     clearTimeout: function () {},
     AuthGate: {
@@ -102,6 +101,13 @@ var S = new H.Suite("REALTIME / Supabase shared state");
     status: function (message) { status = message; },
   });
 
+  remote.vendors[0].name = "Changed on another phone";
+  await R.RealtimeSync.refresh();
+  S.eq(state.vendors[0].name, "Changed on another phone",
+       "a fresh shared-state check applies changes missed by the realtime socket");
+  S.eq(base.vendors[0].name, "Changed on another phone",
+       "a fresh shared-state check advances the local baseline");
+
   state.vendors[0].name = "Updated";
   S.eq(writeCount, 0, "editing does not write to Supabase automatically");
   S.eq(sequence, [], "editing does not prompt for name or password");
@@ -131,6 +137,12 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   S.eq(localPending, true, "a local edit stays marked pending after remote changes");
   S.eq(writeCount, 1, "incoming realtime updates never trigger a database write");
   S.ok(/tap Sync changes/.test(status), "the status tells the user how to publish local edits");
+  remote.vendors[0].name = "Remote while offline";
+  await R.RealtimeSync.refresh();
+  S.eq(state.vendors[0].name, "Local unsynced",
+       "catch-up refreshes keep this device's unsynced edits");
+  S.eq(base.vendors[0].name, "Remote while offline",
+       "catch-up refreshes still advance the shared baseline");
   finish([S]);
 })().catch(function (error) {
   S.ok(false, "realtime suite completes", String(error && (error.stack || error)));

@@ -44,6 +44,10 @@ function writeCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data })); }
   catch { /* quota — the cache is an optimisation, never a requirement */ }
 }
+function discardLocalDraft() {
+  localStorage.removeItem(KEY);
+  localStorage.setItem(PENDING_KEY, "0");
+}
 async function loadData() {
   const shared = await window.RealtimeSync?.load();
   if (shared) return shared;
@@ -241,7 +245,7 @@ function flushSave() {
     return false;
   }
   setSaveIndicator(true);
-  syncStatus("Edits saved on this device. Tap Sync changes to share them.", "msg-warn");
+  syncStatus("Edits saved only on this device. Tap Sync changes to share them; refreshing discards unsynced edits.", "msg-warn");
   return true;
 }
 function save() {
@@ -1009,27 +1013,11 @@ function wire() {
 
 /* --------------------------------------------------------------------- boot */
 (async function () {
+  // Refresh always starts from shared data; unsynced drafts are intentionally
+  // discarded rather than restored over changes made on another device.
+  discardLocalDraft();
   base = normalize(await loadData());
-  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-  // "1" = edits not yet pushed to shared state. null = a browser that predates the
-  // marker, whose snapshot we keep rather than silently dropping.
-  const pending = localStorage.getItem(PENDING_KEY);
-  if (saved && pending !== "0") {
-    st = normalize(saved);
-    // Keep the latest reference details even when an older snapshot predates them.
-    st.vendorDetails = base.vendorDetails;
-  } else {
-    // Nothing outstanding: the shared snapshot is the source of truth.
-    st = JSON.parse(JSON.stringify(base));
-    localStorage.removeItem(KEY);
-    localStorage.setItem(PENDING_KEY, "0");
-  }
-  // A snapshot taken before this feature has fewer room rows than the export;
-  // keep whatever the person typed rather than padding it away.
-  for (const b of base.hotels) {
-    const s = st.hotels.find(x => x.id === b.id);
-    if (s) s.grid = s.grid.slice(0, Math.max(b.grid.length, s.grid.length));
-  }
+  st = JSON.parse(JSON.stringify(base));
   $("#eventName").textContent = (base.event || "").replace(/^Wedding\s*[-–]\s*/i, "") || base.event;
   $("#genDate").textContent = base.generated;
   setName(localStorage.getItem(NAME_KEY) || "");
