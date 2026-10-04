@@ -41,8 +41,8 @@
       <span class="lock-step done" id="stepName">1&nbsp;Name</span>
       <span class="lock-step active" id="stepPass">2&nbsp;Password</span>
     </div>
-    <h1>Save to cloud</h1>
-    <p class="dim">Enter the password to send your entries to the spreadsheet.</p>
+    <h1>Save to shared tracker</h1>
+    <p class="dim">Enter the password to save changes to the shared tracker.</p>
     <input id="saveLockPass" type="password" placeholder="Password"
            autocomplete="current-password" enterkeyhint="go">
     <div class="lock-row">
@@ -68,8 +68,8 @@
              autocomplete="name" enterkeyhint="done">
       <span id="saveState" class="save-state">Auto-saved</span>
       <button id="btnPrint" class="btn" title="Print or save as PDF">Print</button>
-      <button id="btnReset" class="btn danger" title="Discard your entries and reload the last Excel export">Reset</button>
-      <button id="btnSync" class="btn primary" title="Save your entries to the cloud so the spreadsheet can be updated">Save on cloud</button>
+      <button id="btnReset" class="btn danger" title="Discard pending local edits and reload shared data">Reset</button>
+      <button id="btnSync" class="btn primary" title="Send any pending edits to the shared live tracker">Sync now</button>
     </div>
   </div>
 </header>
@@ -145,17 +145,17 @@
   <!-- ============================================================= CHANGES -->
   <section id="view-changes" class="view" hidden>
     <p class="hint">Every change made on this device, with the person who made it. We ask
-       for your name the first time you edit something. Changes are stored in this browser
-       and travel to the spreadsheet when you press <strong>Save on cloud</strong>.</p>
+         for your name the first time you edit something. Changes are saved to the shared
+         tracker automatically.</p>
     <div id="changesList"></div>
   </section>
 
 </main>
 
 <footer class="wrap foot">
-  <p>Everything you type is saved in this browser as you go, and stays on this device.
-     Press <strong>Save on cloud</strong> when you want your entries carried into the
-     spreadsheet. <strong>Reset</strong> throws them away and goes back to the last export.</p>
+  <p>Changes are saved in this browser as you type and shared with other open browsers
+     automatically. <strong>Reset</strong> throws away this device&rsquo;s unsaved edits
+     and returns to the latest shared data.</p>
   <p class="dim" id="syncStatus">Figures generated from the workbook on <span id="genDate"></span>.</p>
   <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
 </footer>
@@ -165,12 +165,15 @@
   <span id="saveStateBar" class="save-state">Auto-saved</span>
   <input id="yourNameBar" class="name-input" placeholder="Your name" data-empty="1"
          autocomplete="name" enterkeyhint="done">
-  <button id="btnSyncBar" class="btn primary">Save</button>
+  <button id="btnSyncBar" class="btn primary">Sync</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="realtime-config.js?v=15"></script>
 <script src="sync-config.js?v=14"></script>
-  <script src="auth.js?v=14"></script>
-  <script src="sync.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+<script src="auth.js?v=15"></script>
+<script src="realtime.js?v=15"></script>
+<script src="sync.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

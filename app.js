@@ -21,7 +21,7 @@
    a browser. */
 
 const KEY = "wedding-tracker-v1";
-const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in Excel
+const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in shared state
 const CHANGES_KEY = "tracker-changes-v1";
 const NAME_KEY = "tracker-name-v1";
 const CACHE_KEY = "wedding-tracker-cache-v1";       // {etag, data} for fast loads
@@ -32,7 +32,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // commits it (no Pages rebuild wait). Falls back to the Pages copy.
 const DATA_API = "https://api.github.com/repos/surajsingh81/wedding_tracker/contents/data.json";
 
-let base = null;   // last Excel export (immutable baseline)
+let base = null;   // last shared snapshot, initially loaded from the workbook export
 let st   = null;   // live state = base + local edits
 
 /* ------------------------------------------------------- fast baseline load
@@ -54,6 +54,8 @@ function decodeGithubContent(meta) {
 }
 
 async function loadData() {
+  const shared = await window.RealtimeSync?.load();
+  if (shared) return shared;
   const cache = readCache();
   try {
     const headers = cache?.etag ? { "If-None-Match": cache.etag } : {};
@@ -114,9 +116,7 @@ function dataSig(d) {
   ]);
 }
 
-// Excel is the source of truth. Once it has absorbed our changes, adopt its
-// export and drop the stale browser snapshot, so the next load starts from
-// Excel instead of replaying an old local state over fresh data.
+// The legacy Excel sync path adopts the export after its GitHub Action finishes.
 function adoptFresh(d) {
   base = normalize(d);
   st = JSON.parse(JSON.stringify(base));
@@ -233,11 +233,12 @@ function flushSave() {
   clearTimeout(saveT); saveT = 0; saveDirty = false;
   try {
     localStorage.setItem(KEY, JSON.stringify(st));
-    localStorage.setItem(PENDING_KEY, "1");   // not yet in Excel
+    localStorage.setItem(PENDING_KEY, "1");   // not yet in shared state
   } catch (e) {
     flash("Could not save (storage full?)");
     return;
   }
+  window.RealtimeSync?.queueSave();
   flash("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
 }
 function save() {
@@ -264,8 +265,9 @@ function flash(msg) {
 /* ------------------------------------------------------------- the name gate
    Two asks, in this order, and always before the password:
      1. the first time someone finishes an edit on this device, and
-     2. immediately before a save to the cloud. */
+     2. before a live save is sent. */
 let nameAsked = false;
+let namePrompt = null;
 function currentName() {
   return (($("#yourName")?.value || $("#yourNameBar")?.value) || "").trim();
 }
@@ -284,16 +286,17 @@ function nameMissing() { return !currentName(); }
 function ensureName(why, force) {
   if (!nameMissing()) return Promise.resolve(true);
   if (nameAsked && !force) return Promise.resolve(false);   // don't nag mid-edit
-  return new Promise(resolve => {
+  if (namePrompt) return namePrompt;
+  namePrompt = new Promise(resolve => {
     const el = $("#nameLock"), input = $("#nameLockInput"), err = $("#nameLockErr");
     const whyEl = $("#nameLockWhy");
-    if (!el || !input) return resolve(false);
+    if (!el || !input) { namePrompt = null; return resolve(false); }
     if (whyEl && why) whyEl.textContent = why;
     el.hidden = false;
     input.value = currentName();
     err.textContent = "";
     input.focus();
-    const done = ok => { el.hidden = true; resolve(ok); };
+    const done = ok => { el.hidden = true; namePrompt = null; resolve(ok); };
     $("#nameLockForm").onsubmit = e => {
       e.preventDefault();
       const v = input.value.trim();
@@ -306,6 +309,7 @@ function ensureName(why, force) {
     };
     $("#nameLockCancel").onclick = () => done(false);
   });
+  return namePrompt;
 }
 
 /* --------------------------------------------------------------- change log */
@@ -941,16 +945,17 @@ function wire() {
   });
   $("#btnPrint").onclick = () => window.print();
 
-  $("#btnSync").onclick = syncNow;
-  const bar = $("#btnSyncBar"); if (bar) bar.onclick = syncNow;
+  $("#btnSync").onclick = () => window.RealtimeSync?.queueSave();
+  const bar = $("#btnSyncBar");
+  if (bar) bar.onclick = () => window.RealtimeSync?.queueSave();
 
   $("#btnReset").onclick = () => {
-    if (!confirm("Discard your edits on this device and reload the last Excel export?")) return;
-    flushSave();
+    if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
+    clearTimeout(saveT); saveT = 0; saveDirty = false;
     localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0");
     st = JSON.parse(JSON.stringify(base));
     renderAll(); flash("Reset");
-    recordChange("Reset — discarded local edits and reloaded the last Excel export");
+    recordChange("Reset — discarded local edits and reloaded shared data");
   };
 }
 
@@ -958,16 +963,15 @@ function wire() {
 (async function () {
   base = normalize(await loadData());
   const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-  // "1" = edits not yet pushed to Excel. null = a browser that predates the
+  // "1" = edits not yet pushed to shared state. null = a browser that predates the
   // marker, whose snapshot we keep rather than silently dropping.
   const pending = localStorage.getItem(PENDING_KEY);
   if (saved && pending !== "0") {
     st = normalize(saved);
-    // Always carry the latest reference details (invoices/hotel breakdowns)
-    // from the export, even when an older snapshot predates them.
+    // Keep the latest reference details even when an older snapshot predates them.
     st.vendorDetails = base.vendorDetails;
   } else {
-    // Nothing outstanding: Excel is the source of truth, so drop the snapshot.
+    // Nothing outstanding: the shared snapshot is the source of truth.
     st = JSON.parse(JSON.stringify(base));
     localStorage.removeItem(KEY);
     localStorage.setItem(PENDING_KEY, "0");
@@ -982,5 +986,15 @@ function wire() {
   $("#genDate").textContent = base.generated;
   setName(localStorage.getItem(NAME_KEY) || "");
   renderAll(); wire();
+  window.RealtimeSync?.start({
+    getState: () => st,
+    setState: value => { st = normalize(value); },
+    setBase: value => { base = normalize(value); },
+    getName: currentName,
+    ensureName,
+    render: renderAll,
+    status: syncStatus,
+    hasPending: localStorage.getItem(PENDING_KEY) === "1",
+  });
   const s0 = $("#saveState"); if (s0) s0.textContent = "Auto-saved";
 })();

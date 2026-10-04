@@ -52,7 +52,7 @@ def _counts(out: str) -> tuple[int, int, int]:
 
 def main() -> int:
     names = sys.argv[1:] or [
-        "test_js_unit", "test_js_functional", "test_js_e2e", "test_js_perf",
+        "test_js_unit", "test_js_functional", "test_js_realtime", "test_js_e2e", "test_js_perf",
     ]
     total_pass = total_fail = total = 0
     failed_suites = []

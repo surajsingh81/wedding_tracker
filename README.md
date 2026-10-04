@@ -39,116 +39,64 @@ git commit -m "refresh from workbook" && git push
 
 ## How edits work
 
-Everything you type is saved in this browser as you go (`localStorage`) and stays
-on this device. The toolbar has three buttons:
-
-- **Save on cloud** — posts your entries to a small relay so they can be carried
-  into the spreadsheet (see below).
-- **Print** — prints the current view (handy for the front-desk room grid).
-- **Reset** — discards your entries on this device and reloads the last Excel export.
+Edits are saved in the browser immediately and sent to the shared Supabase
+database automatically. Other open browsers receive database changes through
+Supabase Realtime. **Sync now** retries any pending edits; **Reset** discards
+this device's pending edits and restores the latest shared state. Excel remains
+an offline workbook/export, not the live source of truth.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
-around by hand. If several people must edit the *same* shared copy, the relay
-below is the way to do it.
+around by hand.
 
 ## Password
 
-The page is **open for viewing** — no login. The password is only asked when
-**saving**: pressing **Save on cloud** prompts for it before anything leaves the
-device. Default password: `wedding2026`.
+The page is open for viewing. The live-edit password is checked by a Supabase
+Edge Function and is never stored in the website code. The Supabase public key
+in `realtime-config.js` is designed to be public; database row-level security
+allows public reads, while writes are restricted to the Edge Function.
 
-> ⚠️ This is a *speed bump*, not real security. GitHub Pages is a static host, so
-> the page, the data and the check all download to the visitor's browser. Anyone
-> determined can still fetch `data.json` directly or read `auth.js`. It stops
-> casual visitors from pushing changes to the spreadsheet. For real access
-> control you would need Cloudflare Access or a small backend.
+## Supabase realtime setup
 
-To change the password:
+The project URL and public key are in `realtime-config.js`. To finish setting up
+the database once:
 
-```bash
-echo -n "newpassword" | shasum -a 256
-```
+1. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql).
+   It creates the shared-state row/table, read-only public policy, write RPCs,
+   and enables Realtime for the table.
+2. Under Edge Functions, deploy the `tracker-write` function using the code in
+   [`supabase/functions/tracker-write/index.ts`](./supabase/functions/tracker-write/index.ts).
+   Turn **Verify JWT with legacy secret** off; the function checks its own
+   `TRACKER_WRITE_PASSWORD` secret instead.
+3. Under Edge Function Secrets, set `TRACKER_WRITE_PASSWORD` to the private
+   editor password. Supabase provides `SUPABASE_URL` and
+   `SUPABASE_SERVICE_ROLE_KEY` to functions automatically. Never put the
+   service-role key in the site.
+4. Publish the website changes. On the first successful edit, the app seeds the
+   shared row from the existing workbook export plus that editor's changes.
+   Each later field edit is sent as a small patch, so changes to different
+   fields can be merged. If two editors change the same field, the last write
+   wins; coordinate vendor additions/removals with other editors.
 
-Paste the hash into `AUTH.hash` in `auth.js`, then commit and push.
+The site asks for the editor name and live-edit password on the first save in a
+browser tab. It keeps the password only in memory for that tab. The shared data
+is readable by anyone who can reach the site, as it already is in the published
+`data.json`; do not put private information in it.
 
 ## Who changed what
 
 Type your name in the **Your name** box at the top — it is remembered on that
-device. Every edit (guest names, vendor fields, add/remove vendor, reset, send)
-is recorded with your name and a timestamp, and shown on the **Changes** tab.
+device. Every edit (guest names, vendor fields, add/remove vendor, reset) is
+recorded with your name and a timestamp, and shown on the **Changes** tab.
 
 The log lives in that browser's `localStorage` (last 300 entries), so each
-device shows its own history. When you press **Save on cloud**, the payload
-carries `author` and the full `changes` list along with the data, so the
-spreadsheet side can keep the same record.
+device shows its own history.
 
-## Getting entries into Excel — automatic ("Save on cloud")
+## Legacy Excel relay
 
-A static page cannot write to a local `.xlsx` file, and GitHub Pages is
-read-only. So the page POSTs the payload to a tiny relay, and a GitHub Action
-patches the workbook and re-exports `data.json` — no manual steps.
-
-The pipeline:
-
-```
-Save on cloud  →  relay (Apps Script web app)  →  inbox/update-<ts>.json
-     →  GitHub Action (apply_payload.py + export_site_data.py)
-     →  workbook + data.json committed  →  Pages rebuilds  →  site shows fresh data
-```
-
-### One-time setup (~5 minutes)
-
-1. **GitHub token** — Settings → Developer settings → Fine-grained tokens →
-   New token: Repository access *only* `surajsingh81/wedding_tracker`,
-   Permissions → Contents: **Read and write**. Copy the token.
-2. **Deploy the relay** — open `script.google.com` → New project → paste the
-   whole of `tools/apps-script-endpoint.js` → Save.
-3. **Script properties** — Project Settings (gear) → Script properties → Add:
-   `GITHUB_TOKEN` = the token from step 1 (REPO and BRANCH are optional;
-   defaults `surajsingh81/wedding_tracker` and `main`).
-4. **Deploy** — Deploy → New deployment → Web app: *Execute as: Me*,
-   *Who has access: Anyone* → Deploy → copy the `/exec` URL.
-5. **Point the site at it** — in `sync-config.js` set
-   `window.SYNC_ENDPOINT = "https://script.google.com/macros/s/.../exec";`
-   then commit and push.
-
-That's it. **Save on cloud** now writes straight into the Excel file in the
-repo, and a page reload reads the freshly exported `data.json`.
-
-### Fallback (no relay configured)
-
-With `SYNC_ENDPOINT` empty, **Save on cloud** opens your mail app with the
-payload addressed to `surajupes@gmail.com` (set in `sync-config.js`) — press
-send, then apply the payload manually:
-
-```bash
-python3 tools/apply_payload.py payload.json --export
-```
-
-### The GitHub Action
-
-`.github/workflows/apply-inbox.yml` runs on every push touching `inbox/*.json`:
-
-```bash
-python3 tools/apply_payload.py --inbox-dir inbox --workbook Wedding_Expense_Tracker_Dec2026.xlsx --export --no-backup
-```
-
-It applies every payload in `inbox/` (sorted), deletes them, re-exports
-`data.json` from the patched workbook, and commits both. Git history is the
-backup, so no extra backup files are kept in the repo.
-
-The patch script backs up the workbook first when run locally, refuses to run
-while Excel has the file open, writes guest names into the grids (full state,
-so clearing a name clears the cell), updates vendor rows, and appends new
-vendors as fresh rows above TOTAL with the SUM ranges extended.
-
-The payload shape is documented in `sync.js` (`buildSyncPayload()`): a flat list
-of guest entries (hotel, room, night, slot, name) plus the full vendor list, with
-`row: null` / `isNew: true` marking vendors that should be appended as new rows.
-
-It reads the workbook by **label** (`Check-in`, `Total rooms`, `Vendor / Category`,
-`TOTAL`), not by row number, so inserting or deleting rows in Excel will not
-break it.
+Excel exports and the old relay workflow remain in the repository for offline
+workbook maintenance. They are not used by the live website; see
+`.github/workflows/apply-inbox.yml` and `tools/apply_payload.py` for that legacy
+workflow.
 
 ## Conventions carried over from the spreadsheet
 
