@@ -1028,6 +1028,7 @@ function wire() {
   setSaveIndicator(localStorage.getItem(PENDING_KEY) === "1");
   window.RealtimeSync?.start({
     getState: () => st,
+    normalize,
     setState: value => { st = normalize(value); },
     setBase: value => { base = normalize(value); },
     getName: currentName,

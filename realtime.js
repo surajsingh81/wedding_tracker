@@ -111,9 +111,10 @@
   function reconcile(next, prior = remoteState) {
     if (!app || !next) return;
     const previous = prior;
+    const incoming = app.normalize ? app.normalize(clone(next)) : clone(next);
     const pending = previous ? patchesBetween(previous, app.getState()) : [];
-    remoteState = clone(next);
-    app.setBase(next);
+    remoteState = clone(incoming);
+    app.setBase(incoming);
     const merged = clone(remoteState);
     for (const patch of pending) setPath(merged, patch.path, patch.value);
     const remaining = patchesBetween(remoteState, merged);
@@ -202,6 +203,8 @@
     start(options) {
       app = options;
       if (!window.SUPABASE_URL || !window.SUPABASE_PUBLIC_KEY) return;
+      if (remoteState && app.normalize)
+        remoteState = app.normalize(clone(remoteState));
       addEventListener("focus", refreshShared);
       addEventListener("online", refreshShared);
       document.addEventListener("visibilitychange", () => {

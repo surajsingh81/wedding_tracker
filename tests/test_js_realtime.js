@@ -82,11 +82,16 @@ var S = new H.Suite("REALTIME / Supabase shared state");
        "shared-state reads request fresh intermediary responses");
 
   var state = JSON.parse(JSON.stringify(remote));
+  state.defaulted = "normalized";
   var base = null;
   var status = "";
-  var localPending = true;
+  var localPending = false;
   R.RealtimeSync.start({
     getState: function () { return state; },
+    normalize: function (value) {
+      if (!Object.hasOwn(value, "defaulted")) value.defaulted = "normalized";
+      return value;
+    },
     setState: function (value) { state = value; },
     setBase: function (value) { base = value; },
     getName: function () { return "Aarti"; },
@@ -107,6 +112,8 @@ var S = new H.Suite("REALTIME / Supabase shared state");
        "a fresh shared-state check applies changes missed by the realtime socket");
   S.eq(base.vendors[0].name, "Changed on another phone",
        "a fresh shared-state check advances the local baseline");
+  S.eq(localPending, false,
+       "normalizing the shared row does not create a false unsynced local change");
 
   state.vendors[0].name = "Updated";
   S.eq(writeCount, 0, "editing does not write to Supabase automatically");
