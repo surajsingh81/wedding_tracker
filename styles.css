@@ -381,6 +381,7 @@ details.inv[open]>summary:after{content:"\25B4"}
 
   .wrap{padding:0 12px}
   .topbar{padding:calc(10px + env(safe-area-inset-top)) 0 10px}
+  .topbar-actions .name-input,.topbar-actions #saveState,.topbar-actions #btnSync{display:none}
   .brand{gap:8px}
   .tagline{font-size:.66rem;letter-spacing:.12em}
   .tabs{margin-top:10px}
