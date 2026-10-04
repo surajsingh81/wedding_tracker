@@ -91,7 +91,7 @@ var S = new H.Suite("REALTIME / Supabase shared state");
     },
     flushLocal: function () { sequence.push("flush-local"); },
     setPending: function (value) { localPending = value; },
-    setSyncBusy: function () {},
+    setSyncBusy: function (busy) { sequence.push(busy ? "busy" : "idle"); },
     render: function () {},
     status: function (message) { status = message; },
   });
@@ -108,8 +108,8 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   }], "only the changed field is sent");
   S.eq(writeRequest.author, "Aarti", "the editor name accompanies the write");
   S.eq(writeRequest.password, "correct horse", "the prompted password accompanies the write");
-  S.eq(sequence, ["flush-local", "name", "password", "write"],
-       "manual sync flushes local edits, asks for name, then password, then writes");
+  S.eq(sequence, ["flush-local", "name", "password", "busy", "write", "idle"],
+       "manual sync asks name then password before writing and only then shows busy");
   S.eq(remote.vendors[0].name, "Updated", "successful writes update shared state");
   S.eq(base.vendors[0].name, "Updated", "successful writes advance the baseline");
   S.eq(localPending, false, "successful writes clear the pending marker");

@@ -104,7 +104,6 @@
   async function syncNow() {
     if (writing || !app) return;
     writing = true;
-    app.setSyncBusy(true);
     try {
       if (app.flushLocal() === false) {
         app.status("Could not save the latest edits on this device. Check browser storage before syncing.", "msg-error");
@@ -117,6 +116,7 @@
       }
       const password = await askForPassword(
         "Enter the live-edit password to share your saved changes.");
+      app.setSyncBusy(true);
       const state = clone(app.getState());
       let result;
       if (!remoteState) {
