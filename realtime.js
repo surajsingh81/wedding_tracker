@@ -12,6 +12,8 @@
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const headers = () => ({
     apikey: window.SUPABASE_PUBLIC_KEY,
+    "Cache-Control": "no-cache, no-store, max-age=0",
+    Pragma: "no-cache",
     Authorization: `Bearer ${window.SUPABASE_PUBLIC_KEY}`,
   });
 

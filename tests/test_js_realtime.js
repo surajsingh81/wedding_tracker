@@ -5,6 +5,7 @@
 var sequence = [];
 var writeCount = 0;
 var realtimeEvents = {};
+var sharedReadOptions = null;
 var E = H.env({
   window: {
     SUPABASE_URL: "https://example.supabase.co",
@@ -43,13 +44,15 @@ var E = H.env({
 var remote = { event: "Wedding", vendors: [{ row: 5, name: "Original" }] };
 var writeRequest = null;
 E.deps.fetch = function (url, options) {
-  if (url.indexOf("/rest/v1/") > -1)
+  if (url.indexOf("/rest/v1/") > -1) {
+    sharedReadOptions = options;
     return Promise.resolve({
       ok: true,
       json: function () {
         return Promise.resolve(JSON.parse(JSON.stringify([{ data: remote }])));
       },
     });
+  }
   writeCount++;
   sequence.push("write");
   writeRequest = JSON.parse(options.body);
@@ -75,6 +78,9 @@ var S = new H.Suite("REALTIME / Supabase shared state");
 (async function () {
   var loaded = await R.RealtimeSync.load();
   S.eq(loaded, remote, "initial state loads from the shared row");
+  S.eq(sharedReadOptions.cache, "no-store", "shared-state reads bypass browser cache");
+  S.eq(sharedReadOptions.headers["Cache-Control"], "no-cache, no-store, max-age=0",
+       "shared-state reads request fresh intermediary responses");
 
   var state = JSON.parse(JSON.stringify(remote));
   var base = null;

@@ -18,6 +18,13 @@ No build step, no dependencies, no server. It is plain `index.html` + `styles.cs
 | `Wedding_Expense_Tracker_Dec2026.xlsx` | The workbook itself, downloadable |
 | `Vendor PDFs/` | The invoice PDF the page links to |
 
+## Live links
+
+- Website: <https://surajsingh81.github.io/wedding_tracker/>
+- Excel workbook: <https://github.com/surajsingh81/wedding_tracker/raw/refs/heads/main/Wedding_Expense_Tracker_Dec2026.xlsx>
+- Latest workbook data export: <https://raw.githubusercontent.com/surajsingh81/wedding_tracker/main/data.json>
+- Workbook workflow runs: <https://github.com/surajsingh81/wedding_tracker/actions/workflows/apply-inbox.yml>
+
 ## Data & the Excel file
 
 Everything is public by choice — the data is not confidential. The repo contains:
@@ -89,6 +96,11 @@ applies that snapshot to the Excel workbook and re-exports `data.json` on
 `main`. This backup is asynchronous; Supabase remains the live source of truth.
 If the relay or workbook workflow fails, the Edge Function logs the error and
 the live database save still succeeds.
+
+Each page load asks Supabase and the raw `main` workbook export for fresh data
+without browser or intermediary caching. A previously saved browser snapshot is
+used only when both network sources are unavailable, and the status line warns
+when the site has fallen back to that offline copy.
 
 ## Who changed what
 

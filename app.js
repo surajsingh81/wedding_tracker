@@ -8,10 +8,9 @@
    * Mobile entry layer: a room picker plus a one-room-at-a-time sheet, so
      filling 10 rooms x 6 nights x 3 guests is a vertical scroll, not a
      horizontal one. The desktop grid is unchanged and still drives both paths.
-   * Faster data exchange:
-       - data.json is cached in localStorage with its ETag, so a repeat load is
-         a 304 with zero bytes instead of a full download, and the app still
-         opens offline.
+   * Data exchange:
+       - Supabase and the workbook export are requested fresh on each load.
+         A last-known snapshot is retained only for offline fallback.
        - localStorage writes are coalesced: a burst of keystrokes costs one
          JSON.stringify + one write, not one per character.
        - the sync payload is a delta against the last export (see sync.js), which
@@ -24,60 +23,63 @@ const KEY = "wedding-tracker-v1";
 const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in shared state
 const CHANGES_KEY = "tracker-changes-v1";
 const NAME_KEY = "tracker-name-v1";
-const CACHE_KEY = "wedding-tracker-cache-v1";       // {etag, data} for fast loads
+const CACHE_KEY = "wedding-tracker-cache-v1";       // last-known snapshot for offline fallback
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-// Live data source: the GitHub API serves data.json the moment the Action
-// commits it (no Pages rebuild wait). Falls back to the Pages copy.
-const DATA_API = "https://api.github.com/repos/surajsingh81/wedding_tracker/contents/data.json";
+// Raw GitHub serves data.json as soon as the workbook workflow commits it.
+const DATA_URL = "https://raw.githubusercontent.com/surajsingh81/wedding_tracker/main/data.json";
 
 let base = null;   // last shared snapshot, initially loaded from the workbook export
 let st   = null;   // live state = base + local edits
 
-/* ------------------------------------------------------- fast baseline load
-   A 304 answers in a few bytes; the Pages fallback and an offline launch both
-   land on the cached copy. Three ordered sources, first success wins. */
+/* ------------------------------------------------------ fresh baseline load
+   Always prefer an uncached database/workbook read. The local snapshot is an
+   offline-only fallback, never a freshness shortcut. */
 function readCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); }
   catch { return null; }
 }
-function writeCache(etag, data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ etag: etag || null, data })); }
+function writeCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data })); }
   catch { /* quota — the cache is an optimisation, never a requirement */ }
 }
-function decodeGithubContent(meta) {
-  // UTF-8 (₹, en-dashes, names). atob() alone decodes as Latin-1 and mangles
-  // every non-ASCII character, so go through bytes + TextDecoder.
-  const bin = atob(meta.content.replace(/\s+/g, ""));
-  return JSON.parse(new TextDecoder("utf-8").decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
-}
-
 async function loadData() {
   const shared = await window.RealtimeSync?.load();
   if (shared) return shared;
   const cache = readCache();
+  const noCache = {
+    "Cache-Control": "no-cache, no-store, max-age=0",
+    Pragma: "no-cache",
+  };
   try {
-    const headers = cache?.etag ? { "If-None-Match": cache.etag } : {};
-    const r = await fetch(DATA_API, { cache: "no-cache", headers });
-    if (r.status === 304 && cache?.data) return cache.data;
-    if (r.ok) {
-      const meta = await r.json();
-      if (meta.content) {
-        const d = decodeGithubContent(meta);
-        writeCache(meta.etag || r.headers.get("etag"), d);
-        return d;
-      }
-    }
-  } catch (e) { /* fall through to the Pages copy */ }
+    const url = new URL(DATA_URL);
+    url.searchParams.set("fresh", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const response = await fetch(url, { cache: "no-store", headers: noCache });
+    if (!response.ok) throw new Error(`Fresh workbook data request failed (HTTP ${response.status})`);
+    const data = await response.json();
+    writeCache(data);
+    return data;
+  } catch (error) {
+    console.warn("Fresh GitHub workbook data could not be loaded.", error);
+  }
 
   try {
-    const d = await (await fetch("data.json", { cache: "no-cache" })).json();
-    writeCache(null, d);
-    return d;
-  } catch (e) { /* fall through to the cache */ }
+    const url = new URL("data.json", window.location.href);
+    url.searchParams.set("fresh", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const response = await fetch(url, { cache: "no-store", headers: noCache });
+    if (!response.ok) throw new Error(`Website data request failed (HTTP ${response.status})`);
+    const data = await response.json();
+    writeCache(data);
+    return data;
+  } catch (error) {
+    console.warn("Fresh website data could not be loaded.", error);
+  }
 
-  if (cache?.data) return cache.data;
+  if (cache?.data) {
+    syncStatus("Could not reach Supabase or a fresh workbook export. Showing this device's offline snapshot.", "msg-warn");
+    return cache.data;
+  }
   throw new Error("could not load data.json");
 }
 
