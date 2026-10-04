@@ -1,10 +1,10 @@
-/* Wedding tracker — all state lives in localStorage; nothing is sent anywhere.
+/* Wedding tracker — edits stay in localStorage until the user presses Sync.
    A fresh data.json (exported from the workbook) is the baseline to reset to.
 
    v14 changes
    -----------
-   * Name gate: the person's name is asked for the first time they finish an
-     edit, and again before a save — always BEFORE the password prompt.
+   * Manual sync: guest and vendor edits stay on this device until Sync is
+     pressed. The name and password prompts are shown only for that action.
    * Mobile entry layer: a room picker plus a one-room-at-a-time sheet, so
      filling 10 rooms x 6 nights x 3 guests is a vertical scroll, not a
      horizontal one. The desktop grid is unchanged and still drives both paths.
@@ -229,17 +229,18 @@ function vendorStatus(v) {
    a flush on the way out so nothing can be lost. */
 let saveT = 0, saveDirty = false;
 function flushSave() {
-  if (!saveT && !saveDirty) return;
+  if (!saveT && !saveDirty) return true;
   clearTimeout(saveT); saveT = 0; saveDirty = false;
   try {
     localStorage.setItem(KEY, JSON.stringify(st));
     localStorage.setItem(PENDING_KEY, "1");   // not yet in shared state
   } catch (e) {
     flash("Could not save (storage full?)");
-    return;
+    return false;
   }
-  window.RealtimeSync?.queueSave();
-  flash("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  setSaveIndicator(true);
+  syncStatus("Edits saved on this device. Tap Sync changes to share them.", "msg-warn");
+  return true;
 }
 function save() {
   saveDirty = true;
@@ -251,21 +252,55 @@ function save() {
 addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSave(); });
 addEventListener("pagehide", flushSave);
 let flashT;
+function setSaveIndicator(pending) {
+  const label = pending ? "Unsynced · saved here" : "All changes synced";
+  for (const id of ["#saveState", "#saveStateBar"]) {
+    const el = $(id); if (!el) continue;
+    el.textContent = label;
+    el.dataset.pending = pending ? "1" : "0";
+  }
+  for (const id of ["#btnSync", "#btnSyncBar"]) {
+    const el = $(id); if (el) el.dataset.pending = pending ? "1" : "0";
+  }
+}
 function flash(msg) {
-  const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   for (const id of ["#saveState", "#saveStateBar"]) {
     const el = $(id); if (!el) continue;
     el.textContent = msg;
     clearTimeout(el._t);
-    el._t = setTimeout(() => el.textContent = "Auto-saved", 2500);
+    el._t = setTimeout(() => setSaveIndicator(localStorage.getItem(PENDING_KEY) === "1"), 2500);
   }
-  return t;
+}
+
+function setPending(pending) {
+  try {
+    if (pending) {
+      localStorage.setItem(KEY, JSON.stringify(st));
+      localStorage.setItem(PENDING_KEY, "1");
+    } else {
+      localStorage.removeItem(KEY);
+      localStorage.setItem(PENDING_KEY, "0");
+    }
+  } catch (e) {
+    flash("Could not update local save (storage full?)");
+    return false;
+  }
+  setSaveIndicator(pending);
+  return true;
+}
+
+function setSyncBusy(busy) {
+  const labels = [["#btnSync", "Sync changes"], ["#btnSyncBar", "Sync"]];
+  for (const [id, label] of labels) {
+    const el = $(id);
+    if (!el) continue;
+    el.disabled = busy;
+    el.textContent = busy ? "Syncing…" : label;
+  }
 }
 
 /* ------------------------------------------------------------- the name gate
-   Two asks, in this order, and always before the password:
-     1. the first time someone finishes an edit on this device, and
-     2. before a live save is sent. */
+   Sync asks for the user's name first, then requests the password. */
 let nameAsked = false;
 let namePrompt = null;
 function currentName() {
@@ -279,14 +314,22 @@ function setName(v) {
     el.value = s;
     el.dataset.empty = s ? "0" : "1";     // drives the amber warning tint
   }
+  const changes = getChanges();
+  let attributed = false;
+  changes.forEach(change => {
+    if (change.who === "Pending") { change.who = s; attributed = true; }
+  });
+  if (attributed) {
+    localStorage.setItem(CHANGES_KEY, JSON.stringify(changes));
+    renderChanges();
+  }
   return s;
 }
 function nameMissing() { return !currentName(); }
 
-function ensureName(why, force) {
-  if (!nameMissing()) return Promise.resolve(true);
-  if (nameAsked && !force) return Promise.resolve(false);   // don't nag mid-edit
+function requestName(why) {
   if (namePrompt) return namePrompt;
+  nameAsked = false;
   namePrompt = new Promise(resolve => {
     const el = $("#nameLock"), input = $("#nameLockInput"), err = $("#nameLockErr");
     const whyEl = $("#nameLockWhy");
@@ -312,13 +355,19 @@ function ensureName(why, force) {
   return namePrompt;
 }
 
+function ensureName(why, force) {
+  if (!nameMissing()) return Promise.resolve(true);
+  if (nameAsked && !force) return Promise.resolve(false);   // don't nag mid-edit
+  return requestName(why);
+}
+
 /* --------------------------------------------------------------- change log */
 function getChanges() {
   try { return JSON.parse(localStorage.getItem(CHANGES_KEY) || "[]"); }
   catch { return []; }
 }
 function recordChange(what) {
-  const who = currentName() || "Anonymous";
+  const who = currentName() || "Pending";
   const log = getChanges();
   log.push({ t: new Date().toISOString(), who, what });
   if (log.length > 300) log.splice(0, log.length - 300);
@@ -872,15 +921,12 @@ function onEditInput(t) {
 function wire() {
   document.addEventListener("input", e => onEditInput(e.target));
 
-  // A finished edit: record it, and if we still do not know who this is, ask.
+  // Record edits locally without prompting; Sync asks for identity before upload.
   document.addEventListener("change", e => {
     const t = e.target;
     if (!(t.matches(GNAME) || t.matches(".roomno") || t.matches(".booked") || t.matches("input.cell")))
       return;
     recordEdit(t);
-    if (nameMissing()) ensureName(
-      "Every change is recorded with the name of the person who made it, so the " +
-      "couple can always ask you about it. It stays on this device.");
   });
 
   // remember the person's name on this device (both copies of the input)
@@ -945,9 +991,9 @@ function wire() {
   });
   $("#btnPrint").onclick = () => window.print();
 
-  $("#btnSync").onclick = () => window.RealtimeSync?.queueSave();
+  $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();
   const bar = $("#btnSyncBar");
-  if (bar) bar.onclick = () => window.RealtimeSync?.queueSave();
+  if (bar) bar.onclick = () => window.RealtimeSync?.syncNow();
 
   $("#btnReset").onclick = () => {
     if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
@@ -986,15 +1032,17 @@ function wire() {
   $("#genDate").textContent = base.generated;
   setName(localStorage.getItem(NAME_KEY) || "");
   renderAll(); wire();
+  setSaveIndicator(localStorage.getItem(PENDING_KEY) === "1");
   window.RealtimeSync?.start({
     getState: () => st,
     setState: value => { st = normalize(value); },
     setBase: value => { base = normalize(value); },
     getName: currentName,
-    ensureName,
+    promptName: requestName,
+    flushLocal: flushSave,
+    setPending,
+    setSyncBusy,
     render: renderAll,
     status: syncStatus,
-    hasPending: localStorage.getItem(PENDING_KEY) === "1",
   });
-  const s0 = $("#saveState"); if (s0) s0.textContent = "Auto-saved";
 })();

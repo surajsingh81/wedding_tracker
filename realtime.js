@@ -5,10 +5,7 @@
   const ROW_URL = () => `${window.SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1&select=data`;
   let client = null;
   let remoteState = null;
-  let accessPassword = null;
-  let timer = 0;
   let writing = false;
-  let dirty = false;
   let app = null;
 
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -60,22 +57,19 @@
   }
 
   async function askForPassword(message) {
-    if (accessPassword) return accessPassword;
     const password = await AuthGate.requestRealtimePassword(message);
     if (!password) throw new Error("Live save cancelled");
     return password;
   }
 
-  async function invokeWriter(action, payload, message) {
+  async function invokeWriter(action, payload, password) {
     const url = `${window.SUPABASE_URL}/functions/v1/tracker-write`;
-    let password = await askForPassword(message);
     const response = await fetch(url, {
       method: "POST",
       headers: { ...headers(), "Content-Type": "application/json" },
       body: JSON.stringify({ action, password, ...payload }),
     });
     if (response.status === 401) {
-      accessPassword = null;
       throw new Error("The live-edit password was rejected. Try again.");
     }
     if (!response.ok) {
@@ -83,7 +77,6 @@
       throw new Error(`Live save failed (HTTP ${response.status}): ${detail}`);
     }
     const result = await response.json();
-    accessPassword = password;
     return result;
   }
 
@@ -99,57 +92,67 @@
     const changed = !equal(app.getState(), merged);
     app.setState(merged);
     if (changed) app.render();
-    if (remaining.length) queueSave();
-    else {
-      localStorage.setItem("wedding-tracker-pending-v1", "0");
-      localStorage.removeItem("wedding-tracker-v1");
+    if (app.setPending(remaining.length > 0) === false) {
+      app.status("Shared data updated, but this device could not update its local save. Check browser storage.", "msg-error");
+      return null;
     }
+    if (remaining.length)
+      app.status("Shared updates received. Your edits are still local; tap Sync changes to publish them.", "msg-warn");
+    return remaining.length > 0;
   }
 
-  async function persist() {
-    if (!app) return;
-    const state = clone(app.getState());
-    const patches = remoteState ? patchesBetween(remoteState, state) : [];
-    if (!remoteState) {
-      const result = await invokeWriter(
-        "initialize", { data: state },
-        "Enter the live-edit password to connect this device.");
-      reconcile(result.data, state);
-      return result.backupQueued === true;
-    }
-    if (!patches.length) return;
-    const result = await invokeWriter(
-      "patch", { patches, author: app.getName() || "Anonymous" },
-      "Enter the live-edit password to save your changes.");
-    reconcile(result.data);
-    return result.backupQueued === true;
-  }
-
-  async function drain() {
-    if (writing || !dirty) return;
+  async function syncNow() {
+    if (writing || !app) return;
     writing = true;
-    dirty = false;
+    app.setSyncBusy(true);
     try {
-      if (!await app.ensureName(
-        "Enter your name so other editors can see who made each change.", true))
-        throw new Error("Live save cancelled");
-      const backupQueued = await persist();
-      app.status(backupQueued
-        ? "✓ Shared live; Excel backup queued in the background."
-        : "✓ Changes saved and shared live.", "msg-ok");
+      if (app.flushLocal() === false) {
+        app.status("Could not save the latest edits on this device. Check browser storage before syncing.", "msg-error");
+        return;
+      }
+      if (!await app.promptName(
+        "Enter your name to identify the edits you are about to share.")) {
+        app.status("Sync cancelled. Your edits are still saved on this device.", "msg-warn");
+        return;
+      }
+      const password = await askForPassword(
+        "Enter the live-edit password to share your saved changes.");
+      const state = clone(app.getState());
+      let result;
+      if (!remoteState) {
+        result = await invokeWriter("initialize", { data: state }, password);
+      } else {
+        const patches = patchesBetween(remoteState, state);
+        if (!patches.length) {
+          if (app.setPending(false) === false) {
+            app.status("Could not update the local sync marker. Check browser storage.", "msg-error");
+            return;
+          }
+          app.status("Everything is already synced. No changes were sent.", "msg-ok");
+          return;
+        }
+        result = await invokeWriter("patch", {
+          patches,
+          author: app.getName() || "Anonymous",
+        }, password);
+      }
+      const hasPending = reconcile(result.data);
+      if (hasPending === null) return;
+      if (hasPending) {
+        app.status("✓ Shared changes saved. New local edits still need Sync.", "msg-warn");
+      } else {
+        app.status(result.backupQueued === true
+          ? "✓ Changes shared live; Excel backup queued in the background."
+          : "✓ Changes shared live.", "msg-ok");
+      }
     } catch (error) {
-      if (error.message !== "Live save cancelled")
-        app.status(error.message, "msg-error");
+      app.status(error.message === "Live save cancelled"
+        ? "Sync cancelled. Your edits are still saved on this device."
+        : error.message, error.message === "Live save cancelled" ? "msg-warn" : "msg-error");
     } finally {
       writing = false;
-      if (dirty) queueSave();
+      app.setSyncBusy(false);
     }
-  }
-
-  function queueSave() {
-    dirty = true;
-    clearTimeout(timer);
-    timer = setTimeout(drain, 450);
   }
 
   window.RealtimeSync = {
@@ -179,12 +182,12 @@
           event: "INSERT", schema: "public", table: TABLE, filter: "id=eq.1",
         }, event => reconcile(event.new.data))
         .subscribe(status => {
-          if (status === "SUBSCRIBED") app.status("Connected — changes sync live.", "msg-ok");
+          if (status === "SUBSCRIBED")
+            app.status("Connected — shared updates arrive live; tap Sync changes to publish your edits.", "msg-ok");
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
             app.status("Realtime connection failed. Check Supabase setup and reload.", "msg-error");
         });
-      if (options.hasPending) queueSave();
     },
-    queueSave,
+    syncNow,
   };
 })();

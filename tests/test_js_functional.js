@@ -269,10 +269,10 @@ tick().then(function () {
   A.save();
   runTimers();
   sv.eq(writes, w1 + 2, "a later save writes again");
-  sv.eq(E.doc.querySelector("#saveState").textContent.indexOf("Saved"), 0,
-        "the status line confirms the save");
-  sv.eq(E.doc.querySelector("#saveStateBar").textContent.indexOf("Saved"), 0,
-        "the thumb bar shows it too");
+  sv.eq(E.doc.querySelector("#saveState").textContent, "Unsynced · saved here",
+        "the status line makes the local-only save explicit");
+  sv.eq(E.doc.querySelector("#saveStateBar").textContent, "Unsynced · saved here",
+        "the thumb bar shows the unsynced state too");
   S.push(sv);
 
   /* ---------------------------------- 5. the mobile room picker */

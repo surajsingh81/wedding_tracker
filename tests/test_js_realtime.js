@@ -1,9 +1,10 @@
 /* ============================================================================
-   tests/test_js_realtime.js — shared realtime persistence and patching.
+   tests/test_js_realtime.js — manual shared-state sync and realtime reads.
    ========================================================================== */
 
-var pendingTimers = [];
-var timerId = 0;
+var sequence = [];
+var writeCount = 0;
+var realtimeEvents = {};
 var E = H.env({
   window: {
     SUPABASE_URL: "https://example.supabase.co",
@@ -13,7 +14,10 @@ var E = H.env({
         return {
           channel: function () {
             return {
-              on: function () { return this; },
+              on: function (_name, config, callback) {
+                realtimeEvents[config.event] = callback;
+                return this;
+              },
               subscribe: function (callback) { callback("SUBSCRIBED"); return this; },
             };
           },
@@ -28,7 +32,10 @@ var E = H.env({
     },
     clearTimeout: function () {},
     AuthGate: {
-      requestRealtimePassword: function () { return Promise.resolve("correct horse"); },
+      requestRealtimePassword: function () {
+        sequence.push("password");
+        return Promise.resolve("correct horse");
+      },
     },
   },
 });
@@ -43,6 +50,8 @@ E.deps.fetch = function (url, options) {
         return Promise.resolve(JSON.parse(JSON.stringify([{ data: remote }])));
       },
     });
+  writeCount++;
+  sequence.push("write");
   writeRequest = JSON.parse(options.body);
   writeRequest.patches.forEach(function (patch) {
     var target = remote;
@@ -55,7 +64,7 @@ E.deps.fetch = function (url, options) {
   return Promise.resolve({
     ok: true,
     json: function () {
-      return Promise.resolve(JSON.parse(JSON.stringify({ data: remote })));
+      return Promise.resolve(JSON.parse(JSON.stringify({ data: remote, backupQueued: true })));
     },
   });
 };
@@ -70,33 +79,52 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   var state = JSON.parse(JSON.stringify(remote));
   var base = null;
   var status = "";
+  var localPending = true;
   R.RealtimeSync.start({
     getState: function () { return state; },
     setState: function (value) { state = value; },
     setBase: function (value) { base = value; },
     getName: function () { return "Aarti"; },
-    ensureName: function () { return Promise.resolve(true); },
+    promptName: function () {
+      sequence.push("name");
+      return Promise.resolve(true);
+    },
+    flushLocal: function () { sequence.push("flush-local"); },
+    setPending: function (value) { localPending = value; },
+    setSyncBusy: function () {},
     render: function () {},
     status: function (message) { status = message; },
-    hasPending: false,
   });
 
   state.vendors[0].name = "Updated";
-  R.RealtimeSync.queueSave();
-  pendingTimers.shift()();
-  for (var i = 0; i < 12; i++) await Promise.resolve();
+  S.eq(writeCount, 0, "editing does not write to Supabase automatically");
+  S.eq(sequence, [], "editing does not prompt for name or password");
+
+  await R.RealtimeSync.syncNow();
 
   S.eq(writeRequest.action, "patch", "existing shared state receives a patch");
   S.eq(writeRequest.patches, [{
     path: ["vendors", "0", "name"], value: "Updated",
   }], "only the changed field is sent");
   S.eq(writeRequest.author, "Aarti", "the editor name accompanies the write");
+  S.eq(writeRequest.password, "correct horse", "the prompted password accompanies the write");
+  S.eq(sequence, ["flush-local", "name", "password", "write"],
+       "manual sync flushes local edits, asks for name, then password, then writes");
   S.eq(remote.vendors[0].name, "Updated", "successful writes update shared state");
   S.eq(base.vendors[0].name, "Updated", "successful writes advance the baseline");
-  S.eq(E.storage.getItem("wedding-tracker-pending-v1"), "0",
-       "successful writes clear the pending marker");
-  S.eq(pendingTimers.length, 0, "an acknowledged patch does not requeue itself");
-  S.eq(status, "✓ Changes saved and shared live.", "successful writes report live sync");
+  S.eq(localPending, false, "successful writes clear the pending marker");
+  S.eq(status, "✓ Changes shared live; Excel backup queued in the background.",
+       "successful writes report live sync and queued backup");
+
+  state.vendors[0].name = "Local unsynced";
+  localPending = true;
+  remote.vendors[0].name = "Remote update";
+  realtimeEvents.UPDATE({ new: { data: remote } });
+  S.eq(state.vendors[0].name, "Local unsynced",
+       "incoming realtime updates do not overwrite an unsynced local edit");
+  S.eq(localPending, true, "a local edit stays marked pending after remote changes");
+  S.eq(writeCount, 1, "incoming realtime updates never trigger a database write");
+  S.ok(/tap Sync changes/.test(status), "the status tells the user how to publish local edits");
   finish([S]);
 })().catch(function (error) {
   S.ok(false, "realtime suite completes", String(error && (error.stack || error)));

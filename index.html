@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=14">
+<link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
 
@@ -20,10 +20,7 @@
 <div id="nameLock" class="lock" hidden>
   <form id="nameLockForm" class="lock-card">
     <h1>What&rsquo;s your name?</h1>
-    <p id="nameLockWhy" class="dim">
-      Every change is recorded with the name of the person who made it, so the
-      couple can always ask you about it. It stays on this device.
-    </p>
+    <p id="nameLockWhy" class="dim">Your name is attached to edits when you choose to sync them.</p>
     <input id="nameLockInput" type="text" placeholder="Your name"
            autocomplete="name" enterkeyhint="done" autocapitalize="words">
     <p id="nameLockErr" class="lock-err"></p>
@@ -42,7 +39,7 @@
       <span class="lock-step active" id="stepPass">2&nbsp;Password</span>
     </div>
     <h1>Save to shared tracker</h1>
-    <p class="dim">Enter the password to save changes to the shared tracker.</p>
+    <p class="dim">Enter the live-edit password to share your saved changes.</p>
     <input id="saveLockPass" type="password" placeholder="Password"
            autocomplete="current-password" enterkeyhint="go">
     <div class="lock-row">
@@ -61,15 +58,14 @@
       <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
     </div>
     <div class="topbar-actions">
-      <!-- The name box is the first thing checked before an edit is recorded and
-           the first thing checked before a save. data-empty drives the warning tint. -->
+      <!-- The name is confirmed again from the Sync action before anything is sent. -->
       <input id="yourName" class="name-input" placeholder="Your name" data-empty="1"
-             title="Your name is recorded with every change you make"
+             title="Your name is attached when you manually sync changes"
              autocomplete="name" enterkeyhint="done">
-      <span id="saveState" class="save-state">Auto-saved</span>
+      <span id="saveState" class="save-state" aria-live="polite">All changes synced</span>
       <button id="btnPrint" class="btn" title="Print or save as PDF">Print</button>
       <button id="btnReset" class="btn danger" title="Discard pending local edits and reload shared data">Reset</button>
-      <button id="btnSync" class="btn primary" title="Send any pending edits to the shared live tracker">Sync now</button>
+      <button id="btnSync" class="btn primary" data-pending="0" title="Share your saved changes; asks for your name and password">Sync changes</button>
     </div>
   </div>
 </header>
@@ -144,36 +140,37 @@
 
   <!-- ============================================================= CHANGES -->
   <section id="view-changes" class="view" hidden>
-    <p class="hint">Every change made on this device, with the person who made it. We ask
-         for your name the first time you edit something. Changes are saved to the shared
-         tracker automatically.</p>
+    <p class="hint">A local history of edits on this device. Changes marked Pending are
+         assigned to your name when you choose Sync; nothing is sent while you edit.</p>
     <div id="changesList"></div>
   </section>
 
 </main>
 
 <footer class="wrap foot">
-  <p>Changes are saved in this browser as you type and shared with other open browsers
-     automatically. <strong>Reset</strong> throws away this device&rsquo;s unsaved edits
-     and returns to the latest shared data.</p>
-  <p class="dim" id="syncStatus">Figures generated from the workbook on <span id="genDate"></span>.</p>
+  <p>Edits are saved on this device as you type. Tap <strong>Sync changes</strong> to
+     share them; your name and password are requested only then. Shared edits from other
+     people still appear live. <strong>Reset</strong> discards this device&rsquo;s unsynced
+     edits and returns to the latest shared data.</p>
+  <p class="dim" id="syncStatus" aria-live="polite">Figures generated from the workbook on <span id="genDate"></span>.</p>
   <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
 </footer>
 
 <!-- Sticky thumb bar (phones only): name + Save within one thumb reach. -->
 <div class="sticky-save">
-  <span id="saveStateBar" class="save-state">Auto-saved</span>
+  <span id="saveStateBar" class="save-state" aria-live="polite">All changes synced</span>
   <input id="yourNameBar" class="name-input" placeholder="Your name" data-empty="1"
+         title="Your name is attached when you manually sync changes"
          autocomplete="name" enterkeyhint="done">
-  <button id="btnSyncBar" class="btn primary">Sync</button>
+  <button id="btnSyncBar" class="btn primary" data-pending="0" title="Share your saved changes">Sync</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="realtime-config.js?v=15"></script>
+<script src="realtime-config.js?v=16"></script>
 <script src="sync-config.js?v=14"></script>
 <script src="auth.js?v=15"></script>
-<script src="realtime.js?v=15"></script>
+<script src="realtime.js?v=16"></script>
 <script src="sync.js?v=14"></script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

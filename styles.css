@@ -161,6 +161,9 @@ a{color:var(--rose-deep);text-decoration-thickness:2px;text-underline-offset:2px
 .btn.danger{color:var(--bad);border-color:var(--bad-line)}
 .btn.danger:hover{background:var(--bad-bg)}
 .save-state{font-size:.82rem;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.save-state[data-pending="1"]{color:var(--warn);font-weight:700}
+.btn.primary[data-pending="1"]{box-shadow:0 0 0 3px var(--warn-bg),0 0 0 5px var(--warn-line)}
+.btn.primary[data-pending="1"]:before{content:"↑";font-size:1.05em;line-height:1}
 
 .name-input{font:inherit;font-size:var(--font-ui);font-weight:500;padding:10px 14px;
   min-height:var(--tap);min-width:150px;border:2px solid var(--line);border-radius:var(--r);

@@ -39,11 +39,12 @@ git commit -m "refresh from workbook" && git push
 
 ## How edits work
 
-Edits are saved in the browser immediately and sent to the shared Supabase
-database automatically. Other open browsers receive database changes through
-Supabase Realtime. **Sync now** retries any pending edits; **Reset** discards
+Edits are saved in the browser immediately and stay on that device until the
+editor clicks **Sync changes**. The app then asks for the editor name followed
+by the live-edit password before writing to Supabase. Other open browsers
+receive committed database changes through Supabase Realtime. **Reset** discards
 this device's pending edits and restores the latest shared state. Excel remains
-an offline workbook/export, not the live source of truth.
+an asynchronous backup, not the live source of truth.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.
@@ -71,15 +72,15 @@ the database once:
    editor password. Supabase provides `SUPABASE_URL` and
    `SUPABASE_SERVICE_ROLE_KEY` to functions automatically. Never put the
    service-role key in the site.
-4. Publish the website changes. On the first successful edit, the app seeds the
-   shared row from the existing workbook export plus that editor's changes.
-   Each later field edit is sent as a small patch, so changes to different
-   fields can be merged. If two editors change the same field, the last write
-   wins; coordinate vendor additions/removals with other editors.
+4. Publish the website changes. Edits are saved on the current device as you
+   type, but are not sent to Supabase automatically. Click **Sync changes** to
+   confirm the editor name and enter the live-edit password. The first successful
+   sync seeds the shared row; later syncs send field-level patches. If two editors
+   change the same field, the last write wins; coordinate vendor additions/removals.
 
-The site asks for the editor name and live-edit password on the first save in a
-browser tab. It keeps the password only in memory for that tab. The shared data
-is readable by anyone who can reach the site, as it already is in the published
+The site asks for the editor name and live-edit password each time **Sync changes**
+is used. The password is not retained in the browser. The shared data is readable
+by anyone who can reach the site, as it already is in the published
 `data.json`; do not put private information in it.
 
 After each successful live save, the Edge Function also posts a full snapshot to
