@@ -304,9 +304,12 @@ def build(ws, d, st, rooms_booked):
 
     put(f"A{F + 2}", "STATUS", st["statuslabel"])
     for c in d["ncols"]:
-        ws[f"{c}{F + 2}"] = (f'=IF({c}{F}={c}{F + 1},"OK",'
-                             f'IF({c}{F}<{c}{F + 1},"need "&({c}{F + 1}-{c}{F})&" more",'
-                             f'"extra "&({c}{F}-{c}{F + 1})))')
+        ws[f"{c}{F + 2}"] = (
+            f'=IF({c}{F}={c}{F + 1},'
+            f'IF({c}{F + 1}=0,"No rooms pre-booked","Guest details complete"),'
+            f'IF({c}{F}<{c}{F + 1},'
+            f'({c}{F + 1}-{c}{F})&" pre-booked room(s) missing guest details",'
+            f'({c}{F}-{c}{F + 1})&" room(s) beyond pre-booked count with guest details"))')
 
     put(f"A{F + 3}", "GUESTS", st["sumlabel"])
     for c in d["ncols"]:

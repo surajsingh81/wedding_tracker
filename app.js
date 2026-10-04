@@ -189,21 +189,21 @@ function roomThird(h, ri) {                      // billable 3rd-guest nights in
   return h.grid[ri].filter(cell => cell[2]).length;
 }
 // Headline numbers for one hotel: guest-nights, extra 3rd-guest nights, and how
-// much of the booked block is actually occupied.
+// much of the reserved block has guest details entered.
 function hotelStats(h) {
   const guestNights = h.grid.reduce((a, row) =>
     a + row.reduce((x, cell) => x + cell.filter(Boolean).length, 0), 0);
   const thirdNights = h.grid.reduce((a, row) =>
     a + row.filter(cell => cell[2]).length, 0);
-  const needed = h.needed.reduce((a, b) => a + (b || 0), 0);
+  const prebookedRoomNights = h.needed.reduce((a, b) => a + (b || 0), 0);
   const filled = h.nights.reduce((a, _, i) => a + filledRooms(h, i), 0);
   const booked = h.roomsBooked ?? h.totalRooms;
-  return { guestNights, thirdNights, needed, filled, booked,
+  return { guestNights, thirdNights, prebookedRoomNights, filled, booked,
            thirdGuests: h.grid.reduce((a, row) =>
              a + row.reduce((x, cell) => x + (cell[2] ? 1 : 0), 0), 0) };
 }
-// A hotel is "booked" while its rooms are held, "filled" once the held rooms
-// actually have guests, and "current" reflects the first night's demand.
+// Hotel-wide reservation totals are distinct from rooms with guest details;
+// current reflects whether the first night's pre-booked rooms have details.
 function hotelStatus(h) {
   const s = hotelStats(h);
   const booked = h.roomsBooked ?? h.totalRooms;
@@ -217,10 +217,20 @@ function hotelStatus(h) {
   };
 }
 function nightStatus(h, ni) {
-  const f = filledRooms(h, ni), need = h.needed[ni] || 0;
-  if (f === need) return { f, need, cls: "ok",    txt: "OK" };
-  if (f <  need)  return { f, need, cls: "short", txt: `need ${need - f} more` };
-  return              { f, need, cls: "over",  txt: `${f - need} over` };
+  const f = filledRooms(h, ni), prebooked = h.needed[ni] || 0;
+  if (f === prebooked) return {
+    f, prebooked, cls: "ok",
+    txt: prebooked ? "All pre-booked rooms have guest details" : "No rooms pre-booked",
+  };
+  if (f < prebooked) return {
+    f, prebooked, cls: "short",
+    txt: `${prebooked - f} pre-booked room${prebooked - f === 1 ? "" : "s"} missing guest details`,
+  };
+  const extra = f - prebooked;
+  return {
+    f, prebooked, cls: "over",
+    txt: `${extra} room${extra === 1 ? "" : "s"} ${extra === 1 ? "has" : "have"} guest details beyond the pre-booked count`,
+  };
 }
 function vendorStatus(v) {
   if (v.quoted === "" || v.quoted == null) return { cls: "none", txt: "Not quoted" };
@@ -426,12 +436,13 @@ function renderAll() {
 
 function renderOverview() {
   const needTot = st.hotels.reduce((a, h) => a + h.needed.reduce((x, y) => x + (y || 0), 0), 0);
-  let fillTot = 0, shortNights = [];
+  let fillTot = 0, missingDetails = 0, extraDetails = 0;
   for (const h of st.hotels)
     h.nights.forEach((_, i) => {
       const s = nightStatus(h, i);
       fillTot += s.f;
-      if (s.cls === "short") shortNights.push(`${h.name} ${h.nights[i]}`);
+      missingDetails += Math.max(0, s.prebooked - s.f);
+      extraDetails += Math.max(0, s.f - s.prebooked);
     });
 
   let guestNights = 0, thirdGuests = 0, thirdNights = 0, roomsInUse = 0;
@@ -448,9 +459,13 @@ function renderOverview() {
   const pend = st.vendors.filter(v => vendorStatus(v).cls === "warn").length;
 
   $("#overviewCards").innerHTML = [
-    ["Room-nights needed", needTot, `${st.hotels.length} hotels`],
-    ["Room-nights assigned", fillTot, shortNights.length ? `${shortNights.length} night(s) short` : "all nights covered", shortNights.length ? "warn" : "ok"],
-    ["Guest-nights", guestNights, `${roomsInUse} room${roomsInUse === 1 ? "" : "s"} in use`],
+    ["Room-nights pre-booked", needTot, `${st.hotels.length} hotels`],
+    ["Room-nights with guest details", fillTot,
+      missingDetails ? `${missingDetails} pre-booked room-night${missingDetails === 1 ? "" : "s"} missing details` :
+        extraDetails ? `Review ${extraDetails} room-night${extraDetails === 1 ? "" : "s"} beyond the pre-booked count` :
+          "All pre-booked rooms have details",
+      missingDetails || extraDetails ? "warn" : "ok"],
+    ["Guest-nights", guestNights, `${roomsInUse} room${roomsInUse === 1 ? "" : "s"} with guest details`],
     ["Extra 3rd guests", thirdGuests, thirdNights ? `${thirdNights} billable guest-night${thirdNights === 1 ? "" : "s"}` : "none billable", thirdGuests ? "warn" : "ok"],
     ["Vendors", st.vendors.length, `${st.vendors.filter(v => v.quoted !== "" && v.quoted != null).length} quoted`],
     ["Vendors pending", pend, pend ? "money still due" : "nothing outstanding", pend ? "warn" : "ok"],
@@ -469,10 +484,10 @@ function renderOverview() {
   $("#nightBars").innerHTML = st.hotels.map(h => `
     <h3>${esc(h.name)}</h3>` + h.nights.map((n, i) => {
       const s = nightStatus(h, i);
-      const pct = s.need ? Math.min(100, (s.f / s.need) * 100) : 0;
+      const pct = s.prebooked ? Math.min(100, (s.f / s.prebooked) * 100) : 0;
       return `<div class="night">
         <div class="night-h"><span class="d">${esc(wd(n))}</span>
-          <span class="s ${s.cls}">${s.f} of ${s.need} rooms &middot; ${esc(s.txt)}</span></div>
+          <span class="s ${s.cls}">${s.f} of ${s.prebooked} pre-booked rooms have guest details &middot; ${esc(s.txt)}</span></div>
         <div class="track"><div class="fill ${s.cls}" style="width:${pct}%"></div></div>
       </div>`;
     }).join("")).join("");
@@ -482,16 +497,16 @@ function renderOverview() {
    repaint them without rebuilding the whole panel (which would eat the caret). */
 function statPills(h, hs) {
   return `
-          <span class="pill ${hs.booked.cls}" title="rooms held vs total rooms available">Booked ${esc(hs.booked.txt)}</span>
-          <span class="pill ${hs.fill.cls}" title="booked rooms that have at least one guest">Filled ${esc(hs.fill.txt)}</span>
-          <span class="pill ${hs.current.cls}" title="${esc(h.nights[0])}: ${esc(hs.current.f)} of ${esc(hs.current.need)} rooms">${esc(wd(h.nights[0]))} ${esc(hs.current.txt)}</span>`;
+          <span class="pill ${hs.booked.cls}" title="rooms reserved at this hotel vs total rooms available">Reserved ${esc(hs.booked.txt)}</span>
+          <span class="pill ${hs.fill.cls}" title="reserved rooms with at least one guest name">Guest details ${esc(hs.fill.txt)}</span>
+          <span class="pill ${hs.current.cls}" title="${esc(h.nights[0])}: ${esc(hs.current.f)} of ${esc(hs.current.prebooked)} pre-booked rooms have guest details">${esc(wd(h.nights[0]))} ${esc(hs.current.txt)}</span>`;
 }
 
 function sumCards(h, hs) {
   const booked = h.roomsBooked ?? h.totalRooms;
   return `
-        <div class="sumcard"><div class="k">Guest-nights</div><div class="v">${hs.guestNights}</div><div class="n">${hs.filled} room-night${hs.filled === 1 ? "" : "s"} filled of ${hs.needed} needed</div></div>
-        <div class="sumcard"><div class="k">Rooms in use</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} booked</div></div>
+        <div class="sumcard"><div class="k">Guest-nights</div><div class="v">${hs.guestNights}</div><div class="n">${hs.filled} pre-booked room-night${hs.filled === 1 ? "" : "s"} with guest details of ${hs.prebookedRoomNights}</div></div>
+        <div class="sumcard"><div class="k">Rooms with guest details</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} rooms reserved at this hotel</div></div>
         <div class="sumcard${hs.thirdGuests ? " extra" : ""}"><div class="k">Extra 3rd guests</div><div class="v">${hs.thirdGuests}</div><div class="n">${hs.thirdNights} billable guest-night${hs.thirdNights === 1 ? "" : "s"}</div></div>`;
 }
 
@@ -559,8 +574,8 @@ function renderRoomsDesktop() {
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("Filled", i => filledRooms(h, i))}
-            ${totalRow("Needed", i => h.needed[i])}
+            ${totalRow("With guests", i => filledRooms(h, i))}
+            ${totalRow("Pre-booked", i => h.needed[i])}
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -667,8 +682,8 @@ function renderRoomsMobile() {
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("Filled", i => filledRooms(h, i))}
-            ${totalRow("Needed", i => h.needed[i])}
+            ${totalRow("With guests", i => filledRooms(h, i))}
+            ${totalRow("Pre-booked", i => h.needed[i])}
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -860,8 +875,8 @@ function refreshRows(hid) {
   const rowFor = label => body.querySelector(`tr.total[data-row="${label}"]`);
   const paint = (label, fn) => rowFor(label)?.querySelectorAll("td.num")
     .forEach((td, i) => { td.textContent = fn(i); });
-  paint("Filled",  i => filledRooms(h, i));
-  paint("Needed",  i => h.needed[i]);
+  paint("With guests", i => filledRooms(h, i));
+  paint("Pre-booked", i => h.needed[i]);
   paint("Guests",  i => nightGuests(h, i));
   paint("3rd guests", i => nightThird(h, i));
   rowFor("status")?.querySelectorAll("td.num").forEach((td, i) => {
@@ -895,7 +910,7 @@ function refreshMobile(hid) {
     const ni = +el.dataset.n;
     const s = nightStatus(h, ni);
     const sp = el.querySelector(".s");
-    if (sp) { sp.className = "s " + s.cls; sp.textContent = `${s.f} of ${s.need} rooms · ${s.txt}`; }
+    if (sp) { sp.className = "s " + s.cls; sp.textContent = `${s.f} of ${s.prebooked} pre-booked rooms have guest details · ${s.txt}`; }
     el.querySelectorAll(".mg.slot3").forEach(g =>
       g.classList.toggle("on", !!(h.grid[ri][ni][2])));
   });

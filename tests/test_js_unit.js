@@ -102,7 +102,7 @@ S.push(c);
 var s = new H.Suite("UNIT / stats + status");
 // room 3 night 3 carries a third guest ("Kavya" in slot 3), so the hotel has
 // 8 guest-nights of which 1 is a billable third occupant
-s.eq(A.hotelStats(h), { guestNights: 8, thirdNights: 1, needed: 6, filled: 5,
+s.eq(A.hotelStats(h), { guestNights: 8, thirdNights: 1, prebookedRoomNights: 6, filled: 5,
                         booked: 4, thirdGuests: 1 }, "hotelStats matches hand calculation");
 var hs = A.hotelStatus(h);
 s.eq(hs.roomsInUse, 3, "roomsInUse = 3");
@@ -110,14 +110,23 @@ s.eq(hs.booked.txt, "4 of 4 rooms", "booked pill text");
 s.eq(hs.booked.cls, "ok", "fully booked pill is ok");
 s.eq(hs.fill.txt, "3 of 4 rooms", "filled pill text");
 s.eq(hs.fill.cls, "warn", "partly filled pill is warn");
-s.eq(hs.current, { f: 2, need: 2, cls: "ok", txt: "OK" }, "first night is OK");
+s.eq(hs.current, { f: 2, prebooked: 2, cls: "ok",
+  txt: "All pre-booked rooms have guest details" }, "first night details are complete");
 
-s.eq(A.nightStatus(h, 0), { f: 2, need: 2, cls: "ok", txt: "OK" }, "nightStatus ok");
-s.eq(A.nightStatus(h, 1), { f: 2, need: 3, cls: "short", txt: "need 1 more" }, "nightStatus short");
-s.eq(A.nightStatus(h, 2), { f: 1, need: 1, cls: "ok", txt: "OK" }, "nightStatus ok (third night)");
+s.eq(A.nightStatus(h, 0), { f: 2, prebooked: 2, cls: "ok",
+  txt: "All pre-booked rooms have guest details" }, "all pre-booked rooms have details");
+s.eq(A.nightStatus(h, 1), { f: 2, prebooked: 3, cls: "short",
+  txt: "1 pre-booked room missing guest details" }, "pre-booked room is missing guest details");
+s.eq(A.nightStatus(h, 2), { f: 1, prebooked: 1, cls: "ok",
+  txt: "All pre-booked rooms have guest details" }, "third night details are complete");
 var hover = A.normalize({ hotels: [{ nights: ["a"], needed: [1], totalRooms: 2, roomsBooked: 2,
   grid: [[["A", "", ""]], [["B", "", ""]]] }] }).hotels[0];
-s.eq(A.nightStatus(hover, 0), { f: 2, need: 1, cls: "over", txt: "1 over" }, "nightStatus over");
+s.eq(A.nightStatus(hover, 0), { f: 2, prebooked: 1, cls: "over",
+  txt: "1 room has guest details beyond the pre-booked count" }, "guest details beyond pre-booked count");
+var noneBooked = A.normalize({ hotels: [{ nights: ["a"], needed: [0], totalRooms: 1, roomsBooked: 1,
+  grid: [[["", "", ""]]] }] }).hotels[0];
+s.eq(A.nightStatus(noneBooked, 0), { f: 0, prebooked: 0, cls: "ok",
+  txt: "No rooms pre-booked" }, "zero pre-booked rooms is complete");
 
 var hzero = A.normalize({ hotels: [{ nights: ["a"], needed: [1], totalRooms: 3, roomsBooked: 0,
   grid: [[["", "", ""]], [["", "", ""]], [["", "", ""]]] }] }).hotels[0];

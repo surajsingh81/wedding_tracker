@@ -130,8 +130,11 @@ workflow.
 
 ## Conventions carried over from the spreadsheet
 
+- The nightly **NEEDED** count means rooms already pre-booked. Website status
+  compares that count with rooms that have guest names entered; a shortfall
+  means guest details are missing, not that more rooms need to be booked.
 - **Two guests per room.** Each room has a Guest 1 and a Guest 2 slot. A room
-  with two people still counts as **one room** against the required number.
+  with two people still counts as **one room** against the pre-booked count.
 - **One row per vendor.** A single invoice covering several services stays in one
   row and one total — never split across several rows.
 - **Invoice detail is reference only.** Vendor detail sheets (invoice
