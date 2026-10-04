@@ -121,19 +121,15 @@ lay = ap.hotel_layout(sheet)
 f.ok(bool(lay), "hotel_layout resolves the layout of a real sheet")
 f.eq(lay["rooms"], int(sheet["B" + str(ap.find_row(sheet, "Total rooms"))].value),
      "layout room count agrees with the Total rooms cell")
-# The canonical workbook is deliberately still the LEGACY two-slot layout:
-# migration has never been authorised, so it has no "Rooms booked" row. That is
-# the state the exporter's fallback exists for, so assert it rather than assume
-# a migrated shape.
-f.eq(ap.find_row(sheet, "Rooms booked"), None,
-     "the canonical copy is still un-migrated (no 'Rooms booked' row)")
-lay2 = ap.hotel_layout(sheet)
-f.ok(ap.find_row(sheet, "Rooms booked") is None
-     and "Room 1 - Guest 3" not in [ap.clean(sheet["A%d" % r].value)
-                                    for r in range(1, sheet.max_row + 1)],
-     "and it really has only two guest blocks")
+# The canonical workbook has been migrated to support actual room numbers and
+# three guest slots; keep these expectations aligned with the published file.
+f.ok(ap.find_row(sheet, "Rooms booked") is not None,
+     "the canonical workbook has a Rooms booked row")
+f.ok("Room 1 - Guest 3" in [ap.clean(sheet["A%d" % r].value)
+                             for r in range(1, sheet.max_row + 1)],
+     "the canonical workbook has a third-guest block")
 
-# ...and a migrated copy must carry both the row and the third block.
+# Re-running migration on a current workbook must be idempotent.
 MIG = Path("/tmp/wt/pytest/migrated.xlsx")
 shutil.copy2(SRC, MIG)
 mig_args = [str(REPO / "tools" / "migrate_hotels.py")]
@@ -153,11 +149,12 @@ from openpyxl import load_workbook as _lw  # noqa: E402
 if MIG.exists():
     mwb = _lw(MIG)
     msheet = ap.hotel_sheet(mwb, "Nirmal")
-    f.ok(ap.find_row(msheet, "Rooms booked") is not None,
-         "a migrated copy gains the 'Rooms booked' row")
-    f.ok(any(ap.clean(msheet["A%d" % r].value).startswith("Room 1 - Guest 3")
-             for r in range(1, msheet.max_row + 1)),
-         "a migrated copy gains the third-guest block")
+    f.eq(sum(ap.clean(msheet.cell(r, 1).value) == "Rooms booked"
+              for r in range(1, msheet.max_row + 1)), 1,
+         "migration does not duplicate the Rooms booked row")
+    f.eq(sum(ap.clean(msheet.cell(r, 1).value) == "Room 1 - Guest 3"
+              for r in range(1, msheet.max_row + 1)), 1,
+         "migration does not duplicate the third-guest block")
     f.ok(ap.hotel_layout(msheet)["rooms"] == lay["rooms"],
          "migration does not change the room count")
 else:
