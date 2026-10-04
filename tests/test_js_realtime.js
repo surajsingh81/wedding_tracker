@@ -125,7 +125,7 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   S.eq(remote.vendors[0].name, "Updated", "successful writes update shared state");
   S.eq(base.vendors[0].name, "Updated", "successful writes advance the baseline");
   S.eq(localPending, false, "successful writes clear the pending marker");
-  S.eq(status, "✓ Changes shared live; Excel backup queued in the background.",
+  S.eq(status, "Data Synced — no unsaved syncs remain. Excel backup queued in the background.",
        "successful writes report live sync and queued backup");
 
   state.vendors[0].name = "Local unsynced";

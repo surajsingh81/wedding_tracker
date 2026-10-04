@@ -1,0 +1,73 @@
+/* ============================================================================
+   tests/test_js_sync_ui.js — sync status and shared-view rendering.
+   ========================================================================== */
+
+var E = H.env({ deps: { setTimeout: function () { return 1; } } });
+var A = H.load(["app.js", "sync.js"], E.deps, [
+  "setSt:function(v){st=v;}",
+  "setBase:function(v){base=v;}",
+  "save", "setSaveIndicator", "renderAll",
+]);
+var S = new H.Suite("SYNC UI / status and shared tabs");
+
+var state = {
+  event: "Wedding - Dec 2026",
+  generated: "2026-10-04",
+  hotels: [{
+    id: "nirmal", name: "Nirmal", nights: ["08-Dec-2026"],
+    checkIn: "08-Dec-2026", checkOut: "09-Dec-2026", checkoutTime: "",
+    needed: [1], totalRooms: 1, roomsBooked: 1, roomNos: ["101"],
+    notes: [], grid: [[["", "", ""]]],
+  }],
+  vendors: [{
+    row: 5, name: "Sync Test Vendor", contact: "", phone: "", whatsapp: "",
+    event: "Venue", eventDate: "08-Dec-2026", quoted: 100000, paid: 75000,
+    paymentMode: "UPI", ref: "", paidOn: "", address: "", notes: "", isNew: false,
+  }],
+  vendorDetails: {
+    "Sync Test Vendor": {
+      kind: "invoice", title: "Sync Test Invoice", sub: "Updated remotely",
+      items: [["Venue", 1, 10000, 10000]], totals: [["Total", 10000]],
+      terms: "", pdf: "", caption: "",
+    },
+  },
+};
+A.setBase(state);
+A.setSt(JSON.parse(JSON.stringify(state)));
+
+A.save();
+S.eq(E.doc.querySelector("#saveState").textContent, "Unsaved Sync",
+     "an edit immediately shows Unsaved Sync");
+S.eq(E.doc.querySelector("#btnSync").dataset.pending, "1",
+     "an edit immediately highlights the desktop sync button");
+S.eq(E.doc.querySelector("#btnSyncBar").dataset.pending, "1",
+     "an edit immediately highlights the mobile sync button");
+A.setSaveIndicator(false);
+S.eq(E.doc.querySelector("#saveState").textContent, "Data Synced",
+     "clearing pending state shows Data Synced");
+S.eq(E.doc.querySelector("#btnSync").dataset.pending, "0",
+     "the desktop sync highlight clears when synced");
+S.eq(E.doc.querySelector("#btnSyncBar").dataset.pending, "0",
+     "the mobile sync highlight clears when synced");
+
+A.renderAll();
+S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("Sync Test Vendor"),
+     "Vendors view renders updated vendor data");
+S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('value="75000"'),
+     "Payments view renders the updated payment");
+S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("75,000"),
+     "Payments summary reflects updated totals");
+S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("Sync Test Invoice"),
+     "Invoices view renders updated invoice details");
+
+state.vendors[0].paid = 80000;
+A.setSt(state);
+A.renderAll();
+S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('value="80000"'),
+     "Vendors view reflects the latest shared payment after switching back");
+S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("80,000"),
+     "Payments summary refreshes after a shared change");
+S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("Updated remotely"),
+     "Invoices view remains populated after a shared change");
+
+finish([S]);

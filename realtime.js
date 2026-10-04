@@ -64,8 +64,10 @@
   async function refreshShared() {
     if (!app || refreshInFlight || document.visibilityState === "hidden") return;
     refreshInFlight = true;
+    const expectedRemote = remoteState;
     try {
       const next = await readRow();
+      if (remoteState !== expectedRemote) return;
       if (next) reconcile(next);
     } catch (error) {
       app.status(`Could not refresh shared data: ${error.message}`, "msg-error");
@@ -124,6 +126,8 @@
     }
     if (remaining.length)
       app.status("Shared updates received. Your edits are still local; tap Sync changes to publish them.", "msg-warn");
+    else if (changed)
+      app.status("Data Synced — shared changes received.", "msg-ok");
     return remaining.length > 0;
   }
 
@@ -154,7 +158,7 @@
             app.status("Could not update the local sync marker. Check browser storage.", "msg-error");
             return;
           }
-          app.status("Everything is already synced. No changes were sent.", "msg-ok");
+          app.status("Data Synced — there are no unsaved changes.", "msg-ok");
           return;
         }
         result = await invokeWriter("patch", {
@@ -162,14 +166,17 @@
           author: app.getName() || "Anonymous",
         }, password);
       }
+      if (!result?.data || typeof result.data !== "object") {
+        throw new Error("Sync returned no shared data. Your edits remain local; try again.");
+      }
       const hasPending = reconcile(result.data);
       if (hasPending === null) return;
       if (hasPending) {
-        app.status("✓ Shared changes saved. New local edits still need Sync.", "msg-warn");
+        app.status("Data Synced, but newer edits remain unsaved. Tap Sync changes again.", "msg-warn");
       } else {
         app.status(result.backupQueued === true
-          ? "✓ Changes shared live; Excel backup queued in the background."
-          : "✓ Changes shared live.", "msg-ok");
+          ? "Data Synced — no unsaved syncs remain. Excel backup queued in the background."
+          : "Data Synced — no unsaved syncs remain.", "msg-ok");
       }
     } catch (error) {
       app.status(error.message === "Live save cancelled"

@@ -245,12 +245,14 @@ function flushSave() {
     return false;
   }
   setSaveIndicator(true);
-  syncStatus("Edits saved only on this device. Tap Sync changes to share them; refreshing discards unsynced edits.", "msg-warn");
+  syncStatus("Unsaved Sync — saved only on this device. Tap Sync changes to share it; refreshing discards it.", "msg-warn");
   return true;
 }
 function save() {
   saveDirty = true;
-  flash("Editing…");
+  setSaveIndicator(true);
+  flash("Unsaved Sync");
+  syncStatus("Unsaved Sync — this edit is only on this device until you tap Sync changes.", "msg-warn");
   clearTimeout(saveT);
   saveT = setTimeout(flushSave, 250);
 }
@@ -259,7 +261,7 @@ addEventListener("visibilitychange", () => { if (document.visibilityState === "h
 addEventListener("pagehide", flushSave);
 let flashT;
 function setSaveIndicator(pending) {
-  const label = pending ? "Unsynced · saved here" : "All changes synced";
+  const label = pending ? "Unsaved Sync · saved here" : "Data Synced";
   for (const id of ["#saveState", "#saveStateBar"]) {
     const el = $(id); if (!el) continue;
     el.textContent = label;
@@ -1005,6 +1007,7 @@ function wire() {
     if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
     clearTimeout(saveT); saveT = 0; saveDirty = false;
     localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0");
+    setSaveIndicator(false);
     st = JSON.parse(JSON.stringify(base));
     renderAll(); flash("Reset");
     recordChange("Reset — discarded local edits and reloaded shared data");
