@@ -48,6 +48,34 @@ def num(v):
     return v if isinstance(v, (int, float)) else ""
 
 
+# Prose notes only. Short labels must match EXACTLY -- a startswith test would
+# swallow a real note such as "Check-out is 14-Dec-2026. 13-Dec is the last
+# night...", which merely opens with a label word. Kept in step with
+# migrate_hotels.is_note so both tools agree on what counts as a note.
+BAR_PREFIX = ("NIRMAL", "AMARAI", "SECOND GUEST", "THIRD GUEST")
+BAR_EXACT = {"BOOKING", "ROOMS NEEDED PER NIGHT", "ROOM ALLOCATION GRID"}
+LABEL_EXACT = {
+    "Date", "Check-in", "Check-out", "Checkout time", "Rooms booked",
+    "Total rooms", "Total room-nights", "TOTAL", "FILLED", "NEEDED", "STATUS",
+    "GUESTS", "3rd GUESTS",
+}
+
+
+def is_note(t):
+    if len(t) <= 40:
+        return False
+    # The A2 subtitle is "Check-in <date> | Check-out <date> | N rooms booked".
+    # The separator is an ASCII pipe in the shipped workbook but has been typed
+    # as U+2502 elsewhere, so accept either.
+    if t.startswith("Check-in ") and ("|" in t or "│" in t):
+        return False
+    if t in BAR_EXACT or t in LABEL_EXACT:
+        return False
+    if any(t.startswith(p) for p in BAR_PREFIX) or t.startswith("Room "):
+        return False
+    return True
+
+
 wb = load_workbook(XLSX)
 report = []
 
@@ -65,6 +93,11 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
     rooms = int(s[f"B{r_rooms}"].value)
     HDR = find_row(s, "Room")
 
+    # "Rooms booked" = how many rooms are actually held, as opposed to "Total
+    # rooms" (the inventory). Workbooks from before the migration lack the row.
+    r_booked = find_row(s, "Rooms booked")
+    booked = int(s[f"B{r_booked}"].value) if r_booked else rooms
+
     # night columns = header cells C..H that are not the trailing "Notes"
     ncols = [c for c in NIGHT_COLS
              if clean(s[f"{c}{HDR}"].value) and clean(s[f"{c}{HDR}"].value) != "Notes"]
@@ -72,22 +105,33 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
 
     g1a = HDR + 1
     g1b = g1a + rooms - 1
-    g2a = g1b + 2          # divider bar sits between the two guest blocks
+    g2a = g1b + 2          # divider bar sits between the guest blocks
     g2b = g2a + rooms - 1
-    F = g2b + 1
+    g3a = g2b + 2
+    g3b = g3a + rooms - 1
+    # the third-guest block only exists once tools/migrate_hotels.py has run, so
+    # fall back to two slots for an un-migrated workbook.
+    has3 = clean(s[f"A{g3a}"].value).startswith("Room 1 - Guest 3")
+    F = (g3b if has3 else g2b) + 1
 
     needed = [num(s[f"{c}{F + 1}"].value) or 0 for c in ncols]
+
+    # the hotel's own room number for each grid row (column B); may be blank
+    room_nos = [clean(s[f"B{g1a + i}"].value) for i in range(rooms)]
+
     grid = []
     for i in range(rooms):
-        grid.append([[clean(s[f"{c}{g1a + i}"].value), clean(s[f"{c}{g2a + i}"].value)] for c in ncols])
+        row = []
+        for c in ncols:
+            cell = [clean(s[f"{c}{g1a + i}"].value), clean(s[f"{c}{g2a + i}"].value)]
+            if has3:
+                cell.append(clean(s[f"{c}{g3a + i}"].value))
+            row.append(cell)
+        grid.append(row)
 
     # long prose lines only: skip titles, subtitles, section bars and grid labels
-    SKIP = ("NIRMAL", "AMARAI", "BOOKING", "ROOMS NEEDED PER NIGHT", "ROOM ALLOCATION GRID",
-            "SECOND GUEST PER ROOM", "PAYMENT SUMMARY", "TOTAL", "Room", "FILLED", "NEEDED", "STATUS")
     notes = [t for t in (clean(s[f"A{r}"].value) for r in range(1, s.max_row + 1))
-             if len(t) > 40 and t not in SKIP
-             and not t.startswith(SKIP)
-             and not (t.startswith("Check-in") and "|" in t)]
+             if is_note(t)]
 
     hotels.append({
         "id": hid,
@@ -96,13 +140,17 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
         "checkOut": clean(s[f"B{r_out}"].value),
         "checkoutTime": clean(s[f"B{r_time}"].value) if r_time else "",
         "totalRooms": rooms,
+        "roomsBooked": booked,
+        "roomNos": room_nos,
         "totalRoomNights": num(s[f"B{r_nights}"].value),
         "nights": nights,
         "needed": needed,
         "grid": grid,
         "notes": notes,
     })
-    report.append(f"{sheet_name}: rooms={rooms} nights={len(nights)} hdr r{HDR} grid r{g1a}-r{g2b}")
+    report.append(f"{sheet_name}: rooms={rooms} booked={booked} nights={len(nights)} "
+                  f"hdr r{HDR} guest blocks r{g1a}/r{g2a}"
+                  + (f"/r{g3a}" if has3 else " (no 3rd-guest block)") + f" FILLED r{F}")
 
 # =================================================================== vendors
 v = wb["Vendors"]

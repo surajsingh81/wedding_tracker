@@ -2,21 +2,49 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover + safe-area padding below lets the thumb bar sit on the
+     home-indicator strip instead of being clipped by it. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2c5735" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11150f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Suraj &amp; Priyanka — Wedding Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=11">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
+
+<!-- ============================================ NAME GATE (asked before password) -->
+<div id="nameLock" class="lock" hidden>
+  <form id="nameLockForm" class="lock-card">
+    <h1>What&rsquo;s your name?</h1>
+    <p id="nameLockWhy" class="dim">
+      Every change is recorded with the name of the person who made it, so the
+      couple can always ask you about it. It stays on this device.
+    </p>
+    <input id="nameLockInput" type="text" placeholder="Your name"
+           autocomplete="name" enterkeyhint="done" autocapitalize="words">
+    <p id="nameLockErr" class="lock-err"></p>
+    <div class="lock-row">
+      <button type="submit" class="btn primary">Continue</button>
+      <button type="button" id="nameLockCancel" class="btn">Not now</button>
+    </div>
+  </form>
+</div>
 
 <!-- ==================================================== SAVE CONFIRM MODAL -->
 <div id="saveLock" class="lock" hidden>
   <form id="saveLockForm" class="lock-card">
+    <div class="lock-steps" aria-hidden="true">
+      <span class="lock-step done" id="stepName">1&nbsp;Name</span>
+      <span class="lock-step active" id="stepPass">2&nbsp;Password</span>
+    </div>
     <h1>Save to cloud</h1>
-    <p class="dim">Enter the password to save your entries to the cloud.</p>
-    <input id="saveLockPass" type="password" placeholder="Password" autocomplete="current-password">
+    <p class="dim">Enter the password to send your entries to the spreadsheet.</p>
+    <input id="saveLockPass" type="password" placeholder="Password"
+           autocomplete="current-password" enterkeyhint="go">
     <div class="lock-row">
       <button type="submit" class="btn primary">Send</button>
       <button type="button" id="saveLockCancel" class="btn">Cancel</button>
@@ -28,17 +56,20 @@
 <header class="topbar">
   <div class="wrap">
     <div class="brand">
-      <div class="orn">✦</div>
+      <div class="orn">&#10038;</div>
       <h1>Suraj <span class="amp">&amp;</span> Priyanka</h1>
       <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
     </div>
     <div class="topbar-actions">
-      <input id="yourName" class="name-input" placeholder="Your name"
-             title="Your name is recorded with every change you make" autocomplete="name">
-      <span id="saveState" class="save-state"></span>
-      <button id="btnSync"  class="btn primary" title="Save your entries to the cloud so the spreadsheet can be updated">Save on cloud</button>
-      <button id="btnPrint" class="btn"    title="Print or save as PDF">Print</button>
-      <button id="btnReset" class="btn danger"   title="Discard your entries and reload the last Excel export">Reset</button>
+      <!-- The name box is the first thing checked before an edit is recorded and
+           the first thing checked before a save. data-empty drives the warning tint. -->
+      <input id="yourName" class="name-input" placeholder="Your name" data-empty="1"
+             title="Your name is recorded with every change you make"
+             autocomplete="name" enterkeyhint="done">
+      <span id="saveState" class="save-state">Auto-saved</span>
+      <button id="btnPrint" class="btn" title="Print or save as PDF">Print</button>
+      <button id="btnReset" class="btn danger" title="Discard your entries and reload the last Excel export">Reset</button>
+      <button id="btnSync" class="btn primary" title="Save your entries to the cloud so the spreadsheet can be updated">Save on cloud</button>
     </div>
   </div>
 </header>
@@ -69,19 +100,30 @@
 
   <!-- ================================================================ ROOMS -->
   <section id="view-rooms" class="view" hidden>
-    <p class="hint">
-      Every room has <strong>two guest slots</strong> — a room with two people still counts
-      as <strong>one room</strong>. Leave a slot empty if that guest is not staying that night.
-      Everything you type is saved in this browser.
+    <p class="hint desktop-only">
+      Set <strong>Rooms booked</strong> and the hotel's own <strong>room numbers</strong>,
+      then type names per room per night. A room with two or three people still counts
+      as <strong>one room</strong>. The <strong>G3</strong> slot is the extra third occupant
+      the hotel bills on top of the room rate &mdash; each entry adds a billable guest-night.
     </p>
-    <div id="hotelPanels"></div>
+
+    <!-- Desktop: the full room x night x slot grid. -->
+    <div id="hotelPanels" class="desktop-only"></div>
+
+    <!-- Phone: a room picker plus one room at a time, filled top to bottom. -->
+    <div id="hotelMobile" class="mobile-only"></div>
+    <p class="hint mobile-only">
+      Pick a room, then fill each night top to bottom.
+      <strong>G1</strong> and <strong>G2</strong> are the room rate;
+      <strong>G3</strong> is the extra person the hotel bills on top.
+    </p>
   </section>
 
   <!-- ============================================================= VENDORS -->
   <section id="view-vendors" class="view" hidden>
     <p class="hint">
       <strong>One row per vendor.</strong> If a single invoice covers several services they all
-      go in that one row. Everything here is editable — type straight into the boxes.
+      go in that one row. Everything here is editable &mdash; type straight into the boxes.
     </p>
     <div class="table-scroll">
       <table class="grid" id="vendorTable"></table>
@@ -102,9 +144,9 @@
 
   <!-- ============================================================= CHANGES -->
   <section id="view-changes" class="view" hidden>
-    <p class="hint">Every change made on this device, with the person who made it. Type your
-       name in the box at the top first. Changes are stored in this browser and travel to the
-       spreadsheet when you press <strong>Save on cloud</strong>.</p>
+    <p class="hint">Every change made on this device, with the person who made it. We ask
+       for your name the first time you edit something. Changes are stored in this browser
+       and travel to the spreadsheet when you press <strong>Save on cloud</strong>.</p>
     <div id="changesList"></div>
   </section>
 
@@ -118,9 +160,17 @@
   <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
 </footer>
 
-<script src="sync-config.js?v=12"></script>
-  <script src="auth.js?v=12"></script>
-  <script src="sync.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+<!-- Sticky thumb bar (phones only): name + Save within one thumb reach. -->
+<div class="sticky-save">
+  <span id="saveStateBar" class="save-state">Auto-saved</span>
+  <input id="yourNameBar" class="name-input" placeholder="Your name" data-empty="1"
+         autocomplete="name" enterkeyhint="done">
+  <button id="btnSyncBar" class="btn primary">Save</button>
+</div>
+
+<script src="sync-config.js?v=14"></script>
+  <script src="auth.js?v=14"></script>
+  <script src="sync.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

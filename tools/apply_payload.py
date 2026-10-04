@@ -6,11 +6,12 @@ the "Wedding tracker update" email). This script:
 
   1. refuses to run while Excel has the workbook open (lock file check),
   2. makes a timestamped backup (unless --no-backup),
-  3. writes guest names into the Nirmal/Amarai grids (full state, so clearing a
-     name on the web also clears the cell),
-  4. updates existing vendor rows by workbook row number,
-  5. appends new vendors as fresh rows above TOTAL and extends the SUM ranges,
-  6. saves, and optionally re-exports data.json.
+  3. writes each hotel's rooms-booked count and room numbers,
+  4. writes guest names into the Nirmal/Amarai grids across three guest slots
+     (full state, so clearing a name on the web also clears the cell),
+  5. updates existing vendor rows by workbook row number,
+  6. appends new vendors as fresh rows above TOTAL and extends the SUM ranges,
+  7. saves, and optionally re-exports data.json.
 
 Usage:
   python3 tools/apply_payload.py payload.json [--export] [--workbook PATH] [--no-backup]
@@ -33,7 +34,10 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-ROOT = Path(__file__).resolve().parents[2]
+# Repo root is the parent of tools/. This must be parents[1], not parents[2]:
+# a stale copy of the workbook from 28-Sep still sits one level further up in
+# the workspace, and a default that points at it would silently discard edits.
+ROOT = Path(__file__).resolve().parents[1]
 XLSX = ROOT / "Wedding_Expense_Tracker_Dec2026.xlsx"
 NIGHT_COLS = ["C", "D", "E", "F", "G", "H"]
 VENDOR_COLS = {  # payload field -> workbook column
@@ -65,6 +69,51 @@ def num_or_blank(v):
         return None
 
 
+def hotel_sheet(wb, label):
+    """Map a hotel name from the payload to its worksheet, or None."""
+    for name in ("Nirmal", "Amarai"):
+        if clean(label).upper() == name.upper():
+            return wb[name]
+    return None
+
+
+def hotel_layout(sheet):
+    """Locate the allocation grid on a hotel sheet.
+
+    Returns {"hdr", "rooms", "blocks", "F"} where blocks[i] is the first row of
+    guest slot i+1. Each divider bar sits directly below its block, so a block
+    starts two rows after the previous block ends -- the same convention
+    export_site_data.py assumes.
+    """
+    hdr = find_row(sheet, "Room")
+    r_rooms = find_row(sheet, "Total rooms")
+    if not hdr or not r_rooms:
+        return None
+    rooms = int(sheet[f"B{r_rooms}"].value)
+    g1a = hdr + 1
+    g2a = g1a + rooms + 1
+    g3a = g2a + rooms + 1
+    # A third-guest block exists only after tools/migrate_hotels.py has run.
+    has3 = clean(sheet[f"A{g3a}"].value).startswith("Room 1 - Guest 3")
+    blocks = [g1a, g2a, g3a] if has3 else [g1a, g2a]
+    return {"hdr": hdr, "rooms": rooms, "blocks": blocks,
+            "F": blocks[-1] + rooms}
+
+
+def _sibling_generated(target: Path):
+    """The `generated` stamp of the data.json sitting next to the workbook, used
+    to detect a delta that was measured against a different baseline."""
+    try:
+        return json.load(open(target.parent / "data.json")).get("generated")
+    except Exception:
+        return None
+
+
+# One-element holder so the delta-baseline check inside apply_payloads can read
+# the workbook's current stamp without threading it through every helper.
+CURRENT_GENERATED = [None]
+
+
 def apply_payloads(payloads, target, do_export=False, make_backup=True):
     """Apply a list of payloads to the workbook at target. Returns a summary dict."""
     lock = target.with_name("~$" + target.name)
@@ -79,27 +128,92 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
         print(f"backup: {backup.name}")
 
     wb = load_workbook(target)
-    applied_g = applied_v = appended_v = 0
+    CURRENT_GENERATED[0] = _sibling_generated(target)
+    applied_g = applied_v = appended_v = applied_rb = applied_rn = 0
     skipped = []
+    warnings = []
 
     for payload in payloads:
+        # ------------------------------------------------------------ envelope
+        # v2 payloads may be deltas: only the guest/room entries that differ
+        # from the export the sender was looking at. Applying a delta is the
+        # same work as applying a subset of a full payload, so nothing below
+        # changes -- we just record what arrived and warn if the sender was
+        # looking at a different export than this workbook currently is.
+        mode = payload.get("mode", "full")
+        stats = payload.get("stats") or {}
+        if payload.get("v"):
+            detail = []
+            if stats.get("cellsConsidered") is not None:
+                detail.append(f"{stats.get('guestsSent', 0)} of "
+                              f"{stats['cellsConsidered']} cells differed")
+            if stats.get("hotelsSent") is not None:
+                detail.append(f"{stats['hotelsSent']} hotel(s) touched")
+            print(f"payload v{payload['v']} mode={mode}"
+                  + (f": {', '.join(detail)}" if detail else ""))
+        base_gen = payload.get("baselineGenerated")
+        if base_gen and CURRENT_GENERATED[0] and base_gen != CURRENT_GENERATED[0]:
+            warnings.append(
+                f"sender measured the delta against export {base_gen!r} but this "
+                f"workbook is at {CURRENT_GENERATED[0]!r} — a stale tab may have "
+                "sent changes measured from an older baseline")
+
+        # ------------------------------------------------- rooms booked + nos.
+        # Full state, so a blank roomNos entry clears the cell -- same contract
+        # as the guest names below.
+        for rb in payload.get("rooms", []):
+            sheet = hotel_sheet(wb, rb.get("hotel", ""))
+            if sheet is None:
+                skipped.append(f"rooms: unknown hotel {rb.get('hotel')!r}")
+                continue
+            lay = hotel_layout(sheet)
+            if not lay:
+                skipped.append(f"rooms: layout not found on {sheet.title}")
+                continue
+
+            if "roomsBooked" in rb:
+                r_booked = find_row(sheet, "Rooms booked")
+                if not r_booked:
+                    skipped.append(
+                        f"rooms: no 'Rooms booked' row on {sheet.title} "
+                        "(run tools/migrate_hotels.py)")
+                else:
+                    try:
+                        booked = int(rb["roomsBooked"])
+                    except (TypeError, ValueError):
+                        skipped.append(f"rooms: bad roomsBooked {rb['roomsBooked']!r}")
+                    else:
+                        if not (0 <= booked <= lay["rooms"]):
+                            skipped.append(
+                                f"rooms: roomsBooked {booked} out of range "
+                                f"0..{lay['rooms']} on {sheet.title}")
+                        else:
+                            sheet[f"B{r_booked}"] = booked
+                            applied_rb += 1
+
+            nos = rb.get("roomNos")
+            if isinstance(nos, list):
+                if len(nos) > lay["rooms"]:
+                    skipped.append(
+                        f"rooms: {len(nos)} room numbers for {lay['rooms']} rooms "
+                        f"on {sheet.title}")
+                else:
+                    for i, no in enumerate(nos[:lay["rooms"]]):
+                        # Room numbers live in column B beside the guest-1 row.
+                        sheet[f"B{lay['blocks'][0] + i}"] = clean(no) or None
+                    applied_rn += 1
+
         # ------------------------------------------------------------ guests
         for g in payload.get("guests", []):
-            sheet = None
-            for name in ("Nirmal", "Amarai"):
-                if g.get("hotel", "").strip().upper() == name.upper():
-                    sheet = wb[name]
-                    break
+            sheet = hotel_sheet(wb, g.get("hotel", ""))
             if sheet is None:
                 skipped.append(f"guest: unknown hotel {g.get('hotel')!r}")
                 continue
-            hdr = find_row(sheet, "Room")
-            r_rooms = find_row(sheet, "Total rooms")
-            if not hdr or not r_rooms:
+            lay = hotel_layout(sheet)
+            if not lay:
                 skipped.append(f"guest: layout not found on {sheet.title}")
                 continue
-            rooms = int(sheet[f"B{r_rooms}"].value)
-            g1a, g2a = hdr + 1, hdr + rooms + 2
+            hdr, rooms = lay["hdr"], lay["rooms"]
             col = next((c for c in NIGHT_COLS
                         if clean(sheet[f"{c}{hdr}"].value) == clean(g.get("night"))), None)
             if col is None:
@@ -110,10 +224,16 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
             except (KeyError, TypeError, ValueError):
                 skipped.append(f"guest: bad room/slot {g.get('room')}/{g.get('slot')}")
                 continue
-            if not (1 <= room <= rooms) or slot not in (1, 2):
-                skipped.append(f"guest: out of range {sheet.title} room {room} slot {slot}")
+            if not (1 <= room <= rooms):
+                skipped.append(f"guest: room {room} out of range 1..{rooms} on {sheet.title}")
                 continue
-            cell_row = g1a + room - 1 if slot == 1 else g2a + room - 1
+            if not (1 <= slot <= len(lay["blocks"])):
+                skipped.append(
+                    f"guest: slot {slot} out of range 1..{len(lay['blocks'])} on "
+                    f"{sheet.title}" + (" (run tools/migrate_hotels.py for 3rd guest)"
+                                        if slot == 3 else ""))
+                continue
+            cell_row = lay["blocks"][slot - 1] + room - 1
             sheet[f"{col}{cell_row}"] = clean(g.get("name")) or None
             applied_g += 1
 
@@ -156,18 +276,26 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
                 applied_v += 1
 
     wb.save(target)
-    print(f"guests applied: {applied_g}, vendors updated: {applied_v}, vendors appended: {appended_v}")
+    print(f"guests applied: {applied_g}, roomsBooked: {applied_rb}, "
+          f"roomNos: {applied_rn}, vendors updated: {applied_v}, "
+          f"vendors appended: {appended_v}")
     if skipped:
         print("skipped:")
         for s in skipped:
             print("  - " + s)
+    if warnings:
+        print("warnings:")
+        for w in warnings:
+            print("  ! " + w)
 
     if do_export:
         import subprocess
         subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "export_site_data.py")],
                        check=True)
 
-    return {"guests": applied_g, "vendors_updated": applied_v, "vendors_appended": appended_v}
+    return {"guests": applied_g, "roomsBooked": applied_rb, "roomNos": applied_rn,
+            "vendors_updated": applied_v, "vendors_appended": appended_v,
+            "skipped": skipped, "warnings": warnings}
 
 
 def main():
