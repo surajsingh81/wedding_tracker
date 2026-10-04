@@ -4,7 +4,7 @@
  "hotels": [
   {
    "id": "nirmal",
-   "name": "NIRMAL",
+   "name": "Nirmal",
    "checkIn": "08-Dec-2026",
    "checkOut": "14-Dec-2026",
    "checkoutTime": "",
@@ -44,7 +44,7 @@
      [
       "Suraj",
       "Smolly",
-      "hello"
+      ""
      ],
      [
       "",
@@ -370,7 +370,7 @@
   },
   {
    "id": "amarai",
-   "name": "AMARAI",
+   "name": "Amarai",
    "checkIn": "08-Dec-2026",
    "checkOut": "12-Dec-2026",
    "checkoutTime": "12:30 PM",
