@@ -40,6 +40,7 @@ var A = H.load(["app.js", "sync.js", "auth.js"], E.deps, [
   "normalize", "dataSig", "esc", "wd", "inr",
   "filledRooms", "nightGuests", "nightThird", "roomGuests", "roomNights", "roomThird",
   "hotelStats", "hotelStatus", "nightStatus", "vendorStatus",
+  "hotelNightsFromDates", "makeHotel", "hotelId",
   "buildSyncPayload", "getChanges",
   "setSt:function(v){st=v;}", "setBase:function(v){base=v;}", "getSt:function(){return st;}",
 ]);
@@ -66,10 +67,31 @@ u.eq(A.normalize({ hotels: [{ nights: ["a"], totalRooms: 2, roomsBooked: "x",
 u.eq(A.normalize({ hotels: [{ nights: ["a"], totalRooms: 3, roomNos: ["101"],
         grid: [[["A"]]] }] }).hotels[0].roomNos, ["101", "", ""],
    "roomNos padded to totalRooms");
+u.eq(A.normalize({ hotels: [{ nights: ["a", "b"], totalRooms: 3, roomsBooked: 2,
+        needed: [1], grid: [[["A"]]] }] }).hotels[0].needed, [1, 2],
+   "nightly pre-booked counts preserve dates and backfill legacy values");
 u.eq(A.normalize({ hotels: [] }).vendors, [], "missing vendors becomes []");
 u.eq(A.normalize({ hotels: [{ nights: ["a"], totalRooms: 1, grid: [[null]] }] }).hotels[0].grid[0][0],
    ["", "", ""], "null cell becomes three empty slots");
 S.push(u);
+
+var nh = new H.Suite("UNIT / adding a hotel");
+nh.eq(A.hotelNightsFromDates("2026-12-08", "2026-12-11"),
+  ["08-Dec-2026", "09-Dec-2026", "10-Dec-2026"],
+  "date range includes each night and excludes checkout");
+nh.eq(A.hotelNightsFromDates("2026-12-11", "2026-12-08"), [],
+  "invalid date range is rejected");
+var addedHotel = A.makeHotel("Palm Grove", "2026-12-08", "2026-12-11", 4, [2, 1, 3]);
+nh.eq(addedHotel.id, "palm-grove", "hotel ID is stable from its name");
+nh.eq(addedHotel.nights, ["08-Dec-2026", "09-Dec-2026", "10-Dec-2026"],
+  "new hotel carries every stay date");
+nh.eq(addedHotel.needed, [2, 1, 3], "new hotel stores a separate pre-booked count per night");
+nh.eq(addedHotel.grid.length, 4, "guest list has one row per available room");
+nh.eq(addedHotel.grid[0].map(cell => cell.length), [3, 3, 3],
+  "each room/date provides three guest slots");
+nh.eq(A.makeHotel("Hotel", "2026-12-08", "2026-12-08", 4, [1]), null,
+  "same-day stay cannot create a hotel");
+S.push(nh);
 
 var c = new H.Suite("UNIT / counters");
 var d = A.normalize(fixture());
@@ -103,13 +125,13 @@ var s = new H.Suite("UNIT / stats + status");
 // room 3 night 3 carries a third guest ("Kavya" in slot 3), so the hotel has
 // 8 guest-nights of which 1 is a billable third occupant
 s.eq(A.hotelStats(h), { guestNights: 8, thirdNights: 1, prebookedRoomNights: 6, filled: 5,
-                        booked: 4, thirdGuests: 1 }, "hotelStats matches hand calculation");
+                        booked: 3, thirdGuests: 1 }, "hotelStats matches hand calculation");
 var hs = A.hotelStatus(h);
 s.eq(hs.roomsInUse, 3, "roomsInUse = 3");
-s.eq(hs.booked.txt, "4 of 4 rooms", "booked pill text");
-s.eq(hs.booked.cls, "ok", "fully booked pill is ok");
-s.eq(hs.fill.txt, "3 of 4 rooms", "filled pill text");
-s.eq(hs.fill.cls, "warn", "partly filled pill is warn");
+s.eq(hs.booked.txt, "3 of 4 rooms", "maximum pre-booked pill text");
+s.eq(hs.booked.cls, "warn", "hotel has available unbooked rooms");
+s.eq(hs.fill.txt, "3 of 3 rooms", "all pre-booked rooms have guest details");
+s.eq(hs.fill.cls, "ok", "all reservations with details are complete");
 s.eq(hs.current, { f: 2, prebooked: 2, cls: "ok",
   txt: "All pre-booked rooms have guest details" }, "first night details are complete");
 
@@ -128,7 +150,7 @@ var noneBooked = A.normalize({ hotels: [{ nights: ["a"], needed: [0], totalRooms
 s.eq(A.nightStatus(noneBooked, 0), { f: 0, prebooked: 0, cls: "ok",
   txt: "No rooms pre-booked" }, "zero pre-booked rooms is complete");
 
-var hzero = A.normalize({ hotels: [{ nights: ["a"], needed: [1], totalRooms: 3, roomsBooked: 0,
+var hzero = A.normalize({ hotels: [{ nights: ["a"], needed: [0], totalRooms: 3, roomsBooked: 0,
   grid: [[["", "", ""]], [["", "", ""]], [["", "", ""]]] }] }).hotels[0];
 var hz = A.hotelStatus(hzero);
 s.eq(hz.fill.cls, "none", "nothing booked and nobody in = none");
@@ -156,8 +178,11 @@ var d2 = A.normalize(fixture());
 d2.hotels[0].grid[0][0][0] = "Someone else";
 sig.ok(A.dataSig(d2) !== A.dataSig(d), "a changed guest name changes the signature");
 var d3 = A.normalize(fixture());
-d3.hotels[0].roomsBooked = 3;
-sig.ok(A.dataSig(d3) !== A.dataSig(d), "roomsBooked is part of the signature");
+d3.hotels[0].roomsBooked = 4;
+sig.ok(A.dataSig(d3) !== A.dataSig(d), "maximum pre-booked count is part of the signature");
+var dNeeded = A.normalize(fixture());
+dNeeded.hotels[0].needed[0] = 1;
+sig.ok(A.dataSig(dNeeded) !== A.dataSig(d), "per-date reservation counts are part of the signature");
 var d4 = A.normalize(fixture());
 d4.hotels[0].roomNos[2] = "999";
 sig.ok(A.dataSig(d4) !== A.dataSig(d), "room numbers are part of the signature");
@@ -211,13 +236,25 @@ pay = A.buildSyncPayload();
 p.eq(pay.guests[0].slot, 3, "third slot reports slot 3");
 p.eq(pay.guests[0].room, 1, "third slot reports the right room");
 
-// roomsBooked change
+// Per-night bookings are synced as hotel metadata.
 freshPair();
-A.getSt().hotels[0].roomsBooked = 3;
+A.getSt().hotels[0].needed[1] = 1;
+A.getSt().hotels[0].roomsBooked = 2;
 pay = A.buildSyncPayload();
-p.eq(pay.rooms.length, 1, "roomsBooked change sends the room list");
-p.eq(pay.rooms[0].roomsBooked, 3, "new roomsBooked value");
-p.eq(pay.guests.length, 0, "roomsBooked change alone sends no guest entries");
+p.eq(pay.rooms.length, 1, "nightly pre-booked count change sends hotel data");
+p.eq(pay.rooms[0].needed, [2, 1, 1], "all nightly pre-booked counts are carried");
+p.eq(pay.rooms[0].roomsBooked, 2, "maximum reservation count stays consistent");
+p.eq(pay.guests.length, 0, "booking count change sends no guest entries");
+
+freshPair();
+var added = A.makeHotel("Palm Grove", "2026-12-08", "2026-12-10", 2, [1, 2]);
+added.grid[0][0][0] = "New guest";
+A.getSt().hotels.push(added);
+pay = A.buildSyncPayload();
+p.ok(pay.rooms.some(room => room.hotel === "Palm Grove" && room.needed[1] === 2),
+  "new hotel metadata and nightly counts are sent to Excel backup");
+p.ok(pay.guests.some(guest => guest.hotel === "Palm Grove" && guest.name === "New guest"),
+  "new hotel guest names are included in the sync delta");
 
 // room number change
 freshPair();

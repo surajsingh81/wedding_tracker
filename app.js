@@ -98,7 +98,12 @@ function normalize(d) {
   for (const h of d.hotels || []) {
     const nights = h.nights || [];
     h.totalRooms = h.totalRooms ?? (h.grid ? h.grid.length : 0);
-    h.roomsBooked = Number.isFinite(+h.roomsBooked) ? +h.roomsBooked : h.totalRooms;
+    const defaultPrebooked = Number.isFinite(+h.roomsBooked) ? +h.roomsBooked : h.totalRooms;
+    h.needed = Array.from({ length: nights.length }, (_, i) => {
+      const count = h.needed?.[i] == null ? defaultPrebooked : Number(h.needed[i]);
+      return Number.isFinite(count) ? Math.max(0, Math.min(h.totalRooms, Math.floor(count))) : 0;
+    });
+    h.roomsBooked = Math.max(0, ...h.needed);
     h.roomNos = Array.from({ length: h.totalRooms }, (_, i) => h.roomNos?.[i] ?? "");
     h.grid = (h.grid || []).map(row =>
       (row || []).map(cell => Array.from({ length: SLOTS }, (_, g) => cell?.[g] ?? "")));
@@ -111,11 +116,135 @@ function normalize(d) {
   return d;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const newHotelNightCounts = {};
+function formatTrackerDate(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return "";
+  const [, year, month, day] = match;
+  return `${day}-${MONTHS[+month - 1]}-${year}`;
+}
+function hotelNightsFromDates(checkIn, checkOut) {
+  const start = Date.parse(`${checkIn}T00:00:00Z`);
+  const end = Date.parse(`${checkOut}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+  const count = (end - start) / 86400000;
+  if (count > 90) return [];
+  return Array.from({ length: count }, (_, i) =>
+    formatTrackerDate(new Date(start + i * 86400000).toISOString().slice(0, 10)));
+}
+function trackerDateToISO(value) {
+  const match = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(value);
+  if (!match) return "";
+  const month = MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase()) + 1;
+  return month ? `${match[3]}-${String(month).padStart(2, "0")}-${match[1]}` : "";
+}
+function hotelId(name) {
+  const slug = String(name).normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return slug || "hotel";
+}
+function makeHotel(name, checkIn, checkOut, capacity, needed) {
+  const nights = hotelNightsFromDates(checkIn, checkOut);
+  const totalRooms = Math.floor(Number(capacity));
+  if (!nights.length || !Number.isFinite(totalRooms) || totalRooms < 1 || totalRooms > 500)
+    return null;
+  const counts = nights.map((_, i) =>
+    Math.max(0, Math.min(totalRooms, Math.floor(Number(needed[i]) || 0))));
+  return {
+    id: hotelId(name), name: name.trim(), checkIn: formatTrackerDate(checkIn),
+    checkOut: formatTrackerDate(checkOut), checkoutTime: "", totalRooms,
+    roomsBooked: Math.max(0, ...counts), roomNos: Array(totalRooms).fill(""),
+    totalRoomNights: counts.reduce((a, b) => a + b, 0), nights, needed: counts,
+    grid: Array.from({ length: totalRooms }, () =>
+      nights.map(() => Array(SLOTS).fill(""))),
+    notes: [],
+  };
+}
+
+function renderNewHotelNights() {
+  const host = $("#newHotelNights");
+  if (!host) return;
+  const dates = hotelNightsFromDates($("#newHotelCheckIn")?.value || "",
+    $("#newHotelCheckOut")?.value || "");
+  if (!dates.length) {
+    host.innerHTML = '<p class="dim">Choose a check-in and later check-out date (up to 90 nights).</p>';
+    return;
+  }
+  const capacity = Math.max(1, Math.min(500, Math.floor(Number($("#newHotelCapacity")?.value) || 1)));
+  host.innerHTML = dates.map(date => {
+    const key = trackerDateToISO(date);
+    const count = Math.max(0, Math.min(capacity, Math.floor(Number(newHotelNightCounts[key]) || 0)));
+    newHotelNightCounts[key] = String(count);
+    return `<div class="hotel-night-count"><label>${esc(wd(date))} · pre-booked rooms
+      <input class="new-hotel-prebooked" type="number" min="0" max="${capacity}"
+        value="${count}" data-night="${key}" inputmode="numeric" aria-label="${esc(date)} pre-booked rooms"></label></div>`;
+  }).join("");
+}
+
+function addHotelFromForm(event) {
+  event.preventDefault();
+  const error = $("#hotelFormError");
+  const name = ($("#newHotelName")?.value || "").trim();
+  const checkIn = $("#newHotelCheckIn")?.value || "";
+  const checkOut = $("#newHotelCheckOut")?.value || "";
+  const capacity = Number($("#newHotelCapacity")?.value);
+  const nights = hotelNightsFromDates(checkIn, checkOut);
+  const invalidSheetChars = /[\\\/:*?\[\]]/.test(name);
+  const nameTaken = st.hotels.some(h => h.name.toLowerCase() === name.toLowerCase()
+    || h.id === hotelId(name));
+  const reservedSheetNames = ["vendors", ...Object.keys(st.vendorDetails || {})];
+  const reserved = reservedSheetNames.some(sheet => sheet.toLowerCase() === name.toLowerCase());
+  if (!name || name.length > 31 || invalidSheetChars) {
+    error.textContent = "Enter a hotel name up to 31 characters. Excel sheet names cannot contain \\ / ? * : [ or ].";
+    return;
+  }
+  if (nameTaken || reserved) {
+    error.textContent = "That name is already used by a hotel or workbook sheet.";
+    return;
+  }
+  if (!nights.length) {
+    error.textContent = "Choose a check-out date after check-in, with a stay of up to 90 nights.";
+    return;
+  }
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
+    error.textContent = "Enter the maximum number of rooms available (1–500).";
+    return;
+  }
+  const counts = nights.map(date => {
+    const count = Number(newHotelNightCounts[trackerDateToISO(date)] || 0);
+    return Math.max(0, Math.min(capacity,
+      Number.isFinite(count) ? Math.floor(count) : 0));
+  });
+  const hotel = makeHotel(name, checkIn, checkOut, capacity, counts);
+  if (!hotel) {
+    error.textContent = "The hotel details could not be created. Check the dates and room counts.";
+    return;
+  }
+  if (st.hotels.some(h => h.id === hotel.id)) {
+    error.textContent = "The hotel name creates a duplicate tracker ID. Use a more distinct name.";
+    return;
+  }
+  st.hotels.push(hotel);
+  mSel[hotel.id] = 0;
+  save();
+  recordChange(`Added hotel "${hotel.name}" with ${hotel.nights.length} night(s)`);
+  $("#hotelForm").reset();
+  $("#newHotelCapacity").value = "1";
+  Object.keys(newHotelNightCounts).forEach(key => delete newHotelNightCounts[key]);
+  renderNewHotelNights();
+  $("#addHotelPanel").open = false;
+  renderAll();
+  flash("Hotel added — enter guest names in its room list");
+}
+
 // Signature of every editable field — used to detect when the workbook has
 // absorbed a save (the API copy then matches the live state).
 function dataSig(d) {
   return JSON.stringify([
-    d.hotels.map(h => [h.id, h.grid, h.roomsBooked, h.roomNos]),
+    d.hotels.map(h => [h.id, h.name, h.checkIn, h.checkOut, h.nights,
+      h.totalRooms, h.needed, h.grid, h.roomsBooked, h.roomNos]),
     d.vendors.map(v => [v.row, v.name, v.contact, v.phone, v.whatsapp,
       v.event, v.eventDate, v.quoted, v.paid, v.paymentMode,
       v.ref, v.paidOn, v.address, v.notes, v.isNew]),
@@ -506,7 +635,7 @@ function sumCards(h, hs) {
   const booked = h.roomsBooked ?? h.totalRooms;
   return `
         <div class="sumcard"><div class="k">Guest-nights</div><div class="v">${hs.guestNights}</div><div class="n">${hs.filled} pre-booked room-night${hs.filled === 1 ? "" : "s"} with guest details of ${hs.prebookedRoomNights}</div></div>
-        <div class="sumcard"><div class="k">Rooms with guest details</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} rooms reserved at this hotel</div></div>
+        <div class="sumcard"><div class="k">Rooms with Guest</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} rooms available at this hotel</div></div>
         <div class="sumcard${hs.thirdGuests ? " extra" : ""}"><div class="k">Extra 3rd guests</div><div class="v">${hs.thirdGuests}</div><div class="n">${hs.thirdNights} billable guest-night${hs.thirdNights === 1 ? "" : "s"}</div></div>`;
 }
 
@@ -560,10 +689,9 @@ function renderRoomsDesktop() {
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
             <span>Check-out <b>${esc(h.checkOut)}</b>${h.checkoutTime ? " at " + esc(h.checkoutTime) : ""}</span>
-            <span class="bookedwrap">Rooms booked
-              <input class="booked" type="number" inputmode="numeric" min="0" max="${h.totalRooms}"
-                     value="${booked}" data-h="${h.id}" data-k="booked"
-                     aria-label="Rooms booked at ${esc(h.name)}">
+            <span class="bookedwrap">Maximum pre-booked rooms
+              <input class="booked" type="number" value="${booked}" data-h="${h.id}"
+                     aria-label="Maximum pre-booked rooms at ${esc(h.name)}" disabled>
               of <b>${h.totalRooms}</b></span>
           </div>
         </div>
@@ -574,8 +702,13 @@ function renderRoomsDesktop() {
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("With guests", i => filledRooms(h, i))}
-            ${totalRow("Pre-booked", i => h.needed[i])}
+            ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
+            <tr class="total" data-row="Pre-Booked Rooms">
+              <td class="sticky-col">Pre-Booked Rooms</td>
+              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
+                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
+                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
+            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -659,10 +792,9 @@ function renderRoomsMobile() {
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
             <span>Check-out <b>${esc(h.checkOut)}</b>${h.checkoutTime ? " at " + esc(h.checkoutTime) : ""}</span>
-            <span class="bookedwrap">Rooms booked
-              <input class="booked" type="number" inputmode="numeric" min="0" max="${h.totalRooms}"
-                     value="${booked}" data-h="${h.id}" data-k="booked"
-                     aria-label="Rooms booked at ${esc(h.name)}">
+            <span class="bookedwrap">Maximum pre-booked rooms
+              <input class="booked" type="number" value="${booked}" data-h="${h.id}"
+                     aria-label="Maximum pre-booked rooms at ${esc(h.name)}" disabled>
               of <b>${h.totalRooms}</b></span>
           </div>
         </div>
@@ -682,8 +814,14 @@ function renderRoomsMobile() {
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("With guests", i => filledRooms(h, i))}
-            ${totalRow("Pre-booked", i => h.needed[i])}
+            ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
+            <tr class="total" data-row="Pre-Booked Rooms">
+              <td class="sticky-col">Pre-Booked Rooms</td>
+              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
+                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
+                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
+              <td class="num"></td>
+            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -824,14 +962,20 @@ function addVendor() {
 // last value seen per editable cell, so the change log shows old -> new
 const lastVal = new Map();
 function cellKey(t) {
-  // hotel metadata inputs (room no / rooms booked) are keyed by kind, not cell
-  if (t.dataset.k) return `${t.dataset.h}-${t.dataset.k}-${t.dataset.r ?? ""}`;
+  // hotel metadata inputs are keyed by kind, not guest-grid cell coordinates
+  if (t.dataset.k) return `${t.dataset.h}-${t.dataset.k}-${t.dataset.r ?? ""}-${t.dataset.n ?? ""}`;
+  if (t.matches(".prebooked-count"))
+    return `${t.dataset.h}-prebooked-${t.dataset.n}`;
   return t.dataset.h ? `${t.dataset.h}-${t.dataset.r}-${t.dataset.n}-${t.dataset.g}` : `v-${t.dataset.v}-${t.dataset.f}`;
 }
 function baseVal(t) {
   if (t.dataset.k) {
     const h = base.hotels.find(x => x.id === t.dataset.h);
     return t.dataset.k === "booked" ? (h?.roomsBooked ?? "") : (h?.roomNos?.[+t.dataset.r] ?? "");
+  }
+  if (t.matches(".prebooked-count")) {
+    const h = base.hotels.find(x => x.id === t.dataset.h);
+    return h?.needed?.[+t.dataset.n] ?? "";
   }
   if (t.dataset.h) {
     const h = base.hotels.find(x => x.id === t.dataset.h);
@@ -840,6 +984,10 @@ function baseVal(t) {
   return base.vendors?.[+t.dataset.v]?.[t.dataset.f] ?? "";
 }
 function describeCell(t) {
+  if (t.matches(".prebooked-count")) {
+    const h = st.hotels.find(x => x.id === t.dataset.h);
+    return `Pre-booked rooms for ${h.nights[+t.dataset.n]} at ${h.name}`;
+  }
   if (t.dataset.k) {
     const h = st.hotels.find(x => x.id === t.dataset.h);
     return t.dataset.k === "booked"
@@ -867,18 +1015,24 @@ function recordEdit(t) {
 function refreshRows(hid) {
   const h = st.hotels.find(x => x.id === hid);
   if (!h) return;
-  // scope by panel: the first [data-h] match is the Rooms-booked input, which
-  // sits outside the grid table, so .closest("table") from it finds nothing.
+  // Scope by hotel panel so edits never rebuild the table and lose the caret.
   const panel = $(`#hotelPanels [data-h="${hid}"]`)?.closest(".panel");
   const body = panel?.querySelector("table.grid tbody");
   if (!body) return;
   const rowFor = label => body.querySelector(`tr.total[data-row="${label}"]`);
   const paint = (label, fn) => rowFor(label)?.querySelectorAll("td.num")
     .forEach((td, i) => { td.textContent = fn(i); });
-  paint("With guests", i => filledRooms(h, i));
-  paint("Pre-booked", i => h.needed[i]);
+  paint("Rooms with Guest", i => filledRooms(h, i));
   paint("Guests",  i => nightGuests(h, i));
   paint("3rd guests", i => nightThird(h, i));
+  rowFor("Pre-Booked Rooms")?.querySelectorAll(".prebooked-count")
+    .forEach((input, i) => { input.value = h.needed[i]; });
+  panel?.querySelectorAll(".booked").forEach(el => {
+    el.value = h.roomsBooked;
+  });
+  const hs = hotelStatus(h);
+  panel?.querySelectorAll(".statpills").forEach(el => { el.innerHTML = statPills(h, hs); });
+  panel?.querySelectorAll(".sumcards").forEach(el => { el.innerHTML = sumCards(h, hs); });
   rowFor("status")?.querySelectorAll("td.num").forEach((td, i) => {
     const s = nightStatus(h, i);
     td.innerHTML = `<span class="pill ${s.cls}">${esc(s.txt)}</span>`;
@@ -901,6 +1055,23 @@ function refreshMobile(hid) {
   const panel = $(`#hotelMobile [data-h="${hid}"]`)?.closest(".panel");
   if (!panel) return;
   paintPanelTotals(panel, h);
+  panel.querySelectorAll(".booked").forEach(el => {
+    el.value = h.roomsBooked;
+  });
+  const body = panel.querySelector("table.grid tbody");
+  const rowFor = label => body?.querySelector(`tr.total[data-row="${label}"]`);
+  const paint = (label, fn) => rowFor(label)?.querySelectorAll("td.num")
+    .forEach((td, i) => { if (i < h.nights.length) td.textContent = fn(i); });
+  paint("Rooms with Guest", i => filledRooms(h, i));
+  paint("Guests", i => nightGuests(h, i));
+  paint("3rd guests", i => nightThird(h, i));
+  rowFor("Pre-Booked Rooms")?.querySelectorAll(".prebooked-count")
+    .forEach((input, i) => { input.value = h.needed[i]; });
+  rowFor("status")?.querySelectorAll("td.num").forEach((td, i) => {
+    if (i >= h.nights.length) return;
+    const status = nightStatus(h, i);
+    td.innerHTML = `<span class="pill ${status.cls}">${esc(status.txt)}</span>`;
+  });
   const chips = panel.querySelector(".roomchips");
   if (chips) chips.innerHTML = mobileChips(h);
   const sheet = panel.querySelector(".msheet");
@@ -950,6 +1121,19 @@ function onEditInput(t) {
     h.roomNos[+t.dataset.r] = t.value;
     save(); refreshRows(t.dataset.h); refreshMobile(t.dataset.h);
   }
+  if (t.matches(".prebooked-count")) {
+    const h = st.hotels.find(x => x.id === t.dataset.h);
+    if (!h) return;
+    const ni = +t.dataset.n;
+    const raw = t.value === "" ? 0 : Number(t.value);
+    const count = Number.isFinite(raw)
+      ? Math.max(0, Math.min(h.totalRooms, Math.floor(raw))) : h.needed[ni];
+    h.needed[ni] = count;
+    h.roomsBooked = Math.max(0, ...h.needed);
+    h.totalRoomNights = h.needed.reduce((sum, value) => sum + value, 0);
+    t.value = String(count);
+    save(); renderOverview(); refreshRows(t.dataset.h); refreshMobile(t.dataset.h);
+  }
   if (t.matches(".booked")) {
     const h = st.hotels.find(x => x.id === t.dataset.h);
     const n = t.value === "" ? 0 : Number(t.value);
@@ -967,14 +1151,32 @@ function onEditInput(t) {
 }
 
 function wire() {
-  document.addEventListener("input", e => onEditInput(e.target));
+  document.addEventListener("input", e => {
+    const t = e.target;
+    if (t.matches(".new-hotel-prebooked")) {
+      newHotelNightCounts[t.dataset.night] = t.value;
+      return;
+    }
+    onEditInput(t);
+  });
 
   // Record edits locally without prompting; Sync asks for identity before upload.
   document.addEventListener("change", e => {
     const t = e.target;
-    if (!(t.matches(GNAME) || t.matches(".roomno") || t.matches(".booked") || t.matches("input.cell")))
+    if (!(t.matches(GNAME) || t.matches(".roomno") || t.matches(".prebooked-count") || t.matches("input.cell")))
       return;
     recordEdit(t);
+  });
+
+  $("#hotelForm")?.addEventListener("submit", addHotelFromForm);
+  for (const id of ["#newHotelCheckIn", "#newHotelCheckOut", "#newHotelCapacity"])
+    $(id)?.addEventListener("input", renderNewHotelNights);
+  $("#cancelAddHotel")?.addEventListener("click", () => {
+    $("#hotelForm").reset();
+    $("#newHotelCapacity").value = "1";
+    Object.keys(newHotelNightCounts).forEach(key => delete newHotelNightCounts[key]);
+    renderNewHotelNights();
+    $("#addHotelPanel").open = false;
   });
 
   // remember the person's name on this device (both copies of the input)

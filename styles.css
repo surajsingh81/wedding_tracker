@@ -200,6 +200,29 @@ a{color:var(--rose-deep);text-decoration-thickness:2px;text-underline-offset:2px
 .hint strong{color:var(--ink);font-weight:600}
 .dim{color:var(--ink-mute);font-size:.85rem}
 .caption{font-size:.85rem;color:var(--ink-mute)}
+.add-hotel{margin:0 0 16px}
+.add-hotel>summary{display:inline-flex;cursor:pointer;list-style:none}
+.add-hotel>summary::-webkit-details-marker{display:none}
+.hotel-form{margin-top:12px;padding:14px;background:var(--surface);
+  border:2px solid var(--line-soft);border-radius:var(--r);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px}
+.hotel-form label{display:flex;flex-direction:column;gap:5px;color:var(--ink-soft);
+  font-size:.85rem;font-weight:600}
+.hotel-form input{width:100%;min-height:var(--tap);padding:8px 10px;border:2px solid var(--line);
+  border-radius:8px;background:var(--edit);color:var(--ink);font:inherit;font-size:var(--font-ui)}
+.hotel-form input:focus{outline:3px solid var(--brand);border-color:var(--brand)}
+.hotel-night-fields,.form-error,.hotel-form-actions{grid-column:1/-1}
+.hotel-night-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.hotel-night-fields>p{margin:0}
+.hotel-night-count{padding:9px;border:1px solid var(--line-soft);border-radius:8px;background:var(--surface-2)}
+.hotel-night-count label{font-size:.8rem}
+.form-error{margin:0;color:var(--bad);font-weight:600}
+.form-error:empty{display:none}
+.hotel-form-actions{display:flex;flex-wrap:wrap;gap:8px}
+.prebooked-count{width:68px;min-height:36px;padding:4px 6px;border:2px solid var(--line);
+  border-radius:7px;background:var(--edit);color:var(--ink);font:inherit;
+  font-size:var(--font-ui);font-weight:700;text-align:center}
+.prebooked-count:focus{outline:3px solid var(--brand);border-color:var(--brand)}
 
 /* -------------------------------------------------------------- night bars */
 .night{border:2px solid var(--line-soft);border-radius:var(--r);background:var(--surface);
@@ -271,6 +294,7 @@ table.grid tr.unbooked td.sticky-col{background:var(--surface-2)}
   font-size:var(--font-ui);font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
 .booked:focus{outline:3px solid var(--brand);outline-offset:0;border-color:var(--brand);
   background:var(--surface)}
+.booked:disabled{opacity:1;color:var(--ink);cursor:default}
 
 /* ---------------------------------------------------- per-hotel status + summary */
 .statpills{display:flex;flex-wrap:wrap;gap:6px;align-items:center}

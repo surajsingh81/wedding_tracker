@@ -68,6 +68,13 @@ S.eq(E.doc.querySelector("#syncToast").textContent,
      "successful sync confirmation is visible in the toast");
 
 A.renderAll();
+var desktopHotel = E.doc.querySelector("#hotelPanels").innerHTML;
+var mobileHotel = E.doc.querySelector("#hotelMobile").innerHTML;
+S.ok(desktopHotel.includes('class="prebooked-count"')
+     && mobileHotel.includes('class="prebooked-count"'),
+     "pre-booked room counts are editable per date on desktop and mobile");
+S.ok(desktopHotel.includes("Rooms with Guest") && desktopHotel.includes("Pre-Booked Rooms"),
+     "room summary labels match the requested wording");
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("Sync Test Vendor"),
      "Vendors view renders updated vendor data");
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('data-label="Contact"')

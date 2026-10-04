@@ -61,7 +61,12 @@ state. Excel remains an asynchronous backup, not the live source of truth.
 On phones, vendor rows are shown as labeled edit cards instead of a wide
 spreadsheet; the theme follows the phone's light/dark appearance setting. In
 Rooms & Guests, choose a room chip to show only that room's guest fields, then
-enter its actual hotel-assigned room number in the labeled box.
+enter its actual hotel-assigned room number in the labeled box. The nightly
+**Pre-Booked Rooms** row is editable independently for every date. Use **Add
+hotel** to enter a hotel name, check-in/check-out dates, room capacity, and the
+pre-booked count for each night; the new hotel's room/date guest list appears
+immediately. After a successful sync, the Excel backup creates a worksheet for
+the added hotel and includes its nightly bookings and guest names.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.

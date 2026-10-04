@@ -43,8 +43,15 @@ function buildExcelPayload(data: Record<string, unknown>, author: string) {
     });
     rooms.push({
       hotel: hotel.name,
+      id: hotel.id,
       roomsBooked: hotel.roomsBooked ?? hotel.totalRooms,
       roomNos: Array.isArray(hotel.roomNos) ? hotel.roomNos : [],
+      totalRooms: hotel.totalRooms,
+      checkIn: hotel.checkIn,
+      checkOut: hotel.checkOut,
+      checkoutTime: hotel.checkoutTime ?? "",
+      nights,
+      needed: Array.isArray(hotel.needed) ? hotel.needed : [],
     });
   }
 

@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
 
@@ -123,11 +123,37 @@
   <!-- ================================================================ ROOMS -->
   <section id="view-rooms" class="view" hidden>
     <p class="hint desktop-only">
-      Set <strong>Rooms booked</strong> and the hotel's own <strong>room numbers</strong>,
-      then type names per room per night. A room with two or three people still counts
+      Set the <strong>Pre-Booked Rooms</strong> count separately for each date and enter
+      guest names in the matching room rows. A room with two or three people still counts
       as <strong>one room</strong>. The <strong>G3</strong> slot is the extra third occupant
       the hotel bills on top of the room rate &mdash; each entry adds a billable guest-night.
     </p>
+
+    <details id="addHotelPanel" class="add-hotel">
+      <summary class="btn primary">+ Add hotel</summary>
+      <form id="hotelForm" class="hotel-form">
+        <label>Hotel name
+          <input id="newHotelName" type="text" maxlength="31" autocomplete="organization" required>
+        </label>
+        <label>Check-in
+          <input id="newHotelCheckIn" type="date" required>
+        </label>
+        <label>Check-out
+          <input id="newHotelCheckOut" type="date" required>
+        </label>
+        <label>Maximum rooms available
+          <input id="newHotelCapacity" type="number" min="1" max="500" value="1" required>
+        </label>
+        <div id="newHotelNights" class="hotel-night-fields">
+          <p class="dim">Choose check-in and check-out dates to set pre-booked rooms for each night.</p>
+        </div>
+        <p id="hotelFormError" class="form-error" role="status" aria-live="polite"></p>
+        <div class="hotel-form-actions">
+          <button type="submit" class="btn primary">Add hotel and guest list</button>
+          <button type="button" class="btn" id="cancelAddHotel">Cancel</button>
+        </div>
+      </form>
+    </details>
 
     <!-- Desktop: the full room x night x slot grid. -->
     <div id="hotelPanels" class="desktop-only"></div>
@@ -135,6 +161,8 @@
     <!-- Phone: a room picker plus one room at a time, filled top to bottom. -->
     <div id="hotelMobile" class="mobile-only"></div>
     <p class="hint mobile-only">
+      Add a hotel with its stay dates and room counts, then enter guest names in its room list.
+      In each hotel table, edit <strong>Pre-Booked Rooms</strong> separately for each date.
       Tap a room above to edit that room&rsquo;s guest names and enter its actual hotel room number.
       <strong>G1</strong> and <strong>G2</strong> are the room rate;
       <strong>G3</strong> is the extra person the hotel bills on top. Swipe the guest table sideways for other dates.
@@ -196,6 +224,6 @@
 <script src="auth.js?v=15"></script>
 <script src="realtime.js?v=25"></script>
 <script src="sync.js?v=14"></script>
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>
