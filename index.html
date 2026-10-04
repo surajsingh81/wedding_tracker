@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
 
@@ -76,8 +76,17 @@
              title="Your name is attached when you manually sync changes"
              autocomplete="name" enterkeyhint="done">
       <span id="saveState" class="save-state" aria-live="polite">Data Synced</span>
-      <button id="btnPrint" class="btn" title="Print or save as PDF">Print</button>
-      <button id="btnReset" class="btn danger" title="Discard pending local edits and reload shared data">Reset</button>
+      <div class="desktop-tools">
+        <button id="btnPrint" class="btn btn-print" title="Print or save as PDF">Print</button>
+        <button id="btnReset" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
+      </div>
+      <details class="mobile-tools">
+        <summary class="btn">More</summary>
+        <div class="mobile-tools-menu">
+          <button class="btn btn-print" title="Print or save as PDF">Print</button>
+          <button class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
+        </div>
+      </details>
       <button id="btnSync" class="btn primary" data-pending="0" title="Share your saved changes; asks for your name and password">Sync changes</button>
     </div>
   </div>
@@ -130,11 +139,8 @@
 
   <!-- ============================================================= VENDORS -->
   <section id="view-vendors" class="view" hidden>
-    <p class="hint">
-      <strong>One row per vendor.</strong> If a single invoice covers several services they all
-      go in that one row. Everything here is editable &mdash; type straight into the boxes.
-    </p>
-    <div class="table-scroll">
+    <p class="hint"><strong>Tap any field to edit.</strong> Sync to share your changes.</p>
+    <div class="table-scroll vendor-scroll">
       <table class="grid" id="vendorTable"></table>
     </div>
     <div class="vendor-actions">
@@ -186,6 +192,6 @@
 <script src="auth.js?v=15"></script>
 <script src="realtime.js?v=25"></script>
 <script src="sync.js?v=14"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

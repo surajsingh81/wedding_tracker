@@ -69,6 +69,11 @@ S.eq(E.doc.querySelector("#syncToast").textContent,
 A.renderAll();
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("Sync Test Vendor"),
      "Vendors view renders updated vendor data");
+S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('data-label="Contact"')
+     && E.doc.querySelector("#vendorTable").innerHTML.includes('data-label="Notes"'),
+     "vendor edit fields include labels for the mobile card layout");
+S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("vendor-remove"),
+     "the remove-vendor action remains available in the mobile card");
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('value="75000"'),
      "Payments view renders the updated payment");
 S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("75,000"),

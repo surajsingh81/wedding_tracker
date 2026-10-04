@@ -443,6 +443,9 @@ table.grid thead th.g-detail{background:var(--surface-2);border-left:2px solid v
 #vendorTable td.g-money,#vendorTable td.g-pay,#vendorTable td.g-detail{border-left:2px solid var(--line-soft)}
 #vendorTable td.g-detail input.cell{background:var(--surface-3)}
 
+.desktop-tools{display:flex;gap:8px;align-items:center}
+.mobile-tools{display:none}
+
 /* ------------------------------------------------------------------ status */
 #syncStatus.msg-ok{color:var(--ok);font-weight:600}
 #syncStatus.msg-warn{color:var(--warn);font-weight:600}
@@ -454,6 +457,66 @@ table.grid thead th.g-detail{background:var(--surface-2);border-left:2px solid v
 .sync-toast.msg-ok{color:var(--ok);border-color:var(--ok)}
 .sync-toast.msg-warn{color:var(--warn);border-color:var(--warn)}
 .sync-toast.msg-error{color:var(--bad);border-color:var(--bad)}
+
+@media (max-width:760px){
+  .topbar-actions .mobile-tools{display:block;position:relative}
+  .desktop-tools{display:none}
+  .mobile-tools>summary{display:inline-flex;list-style:none}
+  .mobile-tools>summary::-webkit-details-marker{display:none}
+  .mobile-tools-menu{display:none}
+  .mobile-tools[open] .mobile-tools-menu{
+    display:flex;position:absolute;right:0;top:calc(100% + 8px);z-index:50;
+    min-width:148px;flex-direction:column;gap:6px;padding:8px;
+    border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface);box-shadow:0 8px 24px #0003
+  }
+  .mobile-tools-menu .btn{width:100%}
+
+  .vendor-scroll{overflow:visible;border:0;border-radius:0;background:transparent}
+  #vendorTable{display:block;width:100%;font-size:.9rem}
+  #vendorTable thead{display:none}
+  #vendorTable tbody{display:grid;gap:12px}
+  #vendorTable tbody tr{
+    display:grid;position:relative;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:0 10px;padding:8px;border:1px solid var(--line-soft);
+    border-radius:14px;background:var(--surface);
+    box-shadow:0 2px 8px #0000000a
+  }
+  #vendorTable tbody tr:nth-child(even):not(.filled):not(.total) td,
+  #vendorTable tbody tr:hover td{background:transparent}
+  #vendorTable td{
+    display:flex;min-width:0;flex-direction:column;gap:4px;
+    padding:6px 4px;border:0;white-space:normal;text-align:left
+  }
+  #vendorTable td::before{
+    content:attr(data-label);color:var(--ink-mute);font-size:.65rem;
+    font-weight:700;letter-spacing:.08em;text-transform:uppercase
+  }
+  #vendorTable td.g-id{grid-column:1 / -1;padding-right:54px}
+  #vendorTable td.g-id::before{content:"Vendor name"}
+  #vendorTable td.g-id input.cell{min-width:0;font-size:1rem;font-weight:700}
+  #vendorTable td.g-money,
+  #vendorTable td.g-pay,
+  #vendorTable td.g-detail{border:0}
+  #vendorTable td.g-money input.cell,
+  #vendorTable td.g-pay input.cell,
+  #vendorTable td.g-detail input.cell{min-width:0;width:100%;font-size:16px}
+  #vendorTable td[data-label="Address"],
+  #vendorTable td[data-label="Notes"]{grid-column:1 / -1}
+  #vendorTable td.vstat{
+    grid-column:1 / -1;flex-direction:row;align-items:center;gap:8px;
+    border-top:1px solid var(--line-soft);margin-top:4px;padding-top:10px
+  }
+  #vendorTable td.vstat::before{content:"Status";margin-right:auto}
+  #vendorTable td.vstat .dim{font-size:.78rem}
+  #vendorTable td.vendor-remove{position:absolute;right:8px;top:8px;padding:0}
+  #vendorTable td.vendor-remove::before{display:none}
+  #vendorTable .row-del{min-width:40px;min-height:40px;border-radius:10px}
+  .vendor-actions{margin:12px 0}
+  .vendor-actions .btn{width:100%}
+  .foot p:first-child,.foot .love{display:none}
+  .foot{padding-top:10px}
+}
 
 /* ------------------------------------------------------------------ modals */
 .lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;

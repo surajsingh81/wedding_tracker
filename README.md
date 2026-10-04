@@ -58,6 +58,8 @@ clear retry message; unsaved changes remain on this device. Syncing with no
 changes does not request credentials.
 **Reset** discards this device's pending edits and restores the latest shared
 state. Excel remains an asynchronous backup, not the live source of truth.
+On phones, vendor rows are shown as labeled edit cards instead of a wide
+spreadsheet; the theme follows the phone's light/dark appearance setting.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.

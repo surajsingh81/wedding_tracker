@@ -708,16 +708,16 @@ function renderVendors() {
      <tbody>${st.vendors.map((v, i) => {
        const s = vendorStatus(v);
        return `<tr>
-         <td class="sticky-col g-id"><input class="cell strong" type="text" value="${esc(v.name)}"
+         <td class="sticky-col g-id" data-label="Vendor"><input class="cell strong" type="text" value="${esc(v.name)}"
              data-v="${i}" data-f="name" aria-label="Vendor name"></td>
-         ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}">
+         ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}" data-label="${l}">
             <input class="cell" type="${t === "number" ? "number" : "text"}"
                    ${t === "number" ? 'min="0" step="500"' : ""}
                    value="${esc(v[k])}" data-v="${i}" data-f="${k}"
                    aria-label="${l} for vendor ${i + 1}"></td>`).join("")}
-         <td class="num vstat"><span class="pill ${s.cls}">${s.txt}</span>
+         <td class="num vstat" data-label="Payment status"><span class="pill ${s.cls}">${s.txt}</span>
              ${s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : ""}</td>
-         <td class="num"><button class="btn row-del" data-del="${i}"
+         <td class="num vendor-remove"><button class="btn row-del" data-del="${i}"
              title="Remove this vendor" aria-label="Remove vendor ${i + 1}">&times;</button></td>
        </tr>`;
      }).join("")}</tbody>`;
@@ -1012,13 +1012,13 @@ function wire() {
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
-  $("#btnPrint").onclick = () => window.print();
+  $$(".btn-print").forEach(button => { button.onclick = () => window.print(); });
 
   $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();
   const bar = $("#btnSyncBar");
   if (bar) bar.onclick = () => window.RealtimeSync?.syncNow();
 
-  $("#btnReset").onclick = () => {
+  $$(".btn-reset").forEach(button => { button.onclick = () => {
     if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
     clearTimeout(saveT); saveT = 0; saveDirty = false;
     localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0");
@@ -1026,7 +1026,7 @@ function wire() {
     st = JSON.parse(JSON.stringify(base));
     renderAll(); flash("Reset");
     recordChange("Reset — discarded local edits and reloaded shared data");
-  };
+  }; });
 }
 
 /* --------------------------------------------------------------------- boot */
