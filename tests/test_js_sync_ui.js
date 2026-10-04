@@ -55,11 +55,11 @@ S.eq(E.doc.querySelector("#syncToast").hidden, false,
      "sending feedback appears in the visible sync toast");
 S.eq(E.doc.querySelector("#syncToast").textContent, "Sending changes to the shared tracker…",
      "the toast explains that the sync request is in progress");
-A.reportRealtimeStatus("The live-edit password was rejected. Try again.", "msg-error");
+A.reportRealtimeStatus("Wrong password. Your changes are still saved on this device.", "msg-error");
 S.eq(E.doc.querySelector("#syncToast").hidden, false,
      "sync failures are visible without scrolling to the footer");
 S.eq(E.doc.querySelector("#syncToast").textContent,
-     "The live-edit password was rejected. Try again.",
+     "Wrong password. Your changes are still saved on this device.",
      "the toast shows the exact password rejection feedback");
 A.reportRealtimeStatus("Data Synced — no unsaved syncs remain.", "msg-ok");
 S.eq(E.doc.querySelector("#syncToast").textContent,

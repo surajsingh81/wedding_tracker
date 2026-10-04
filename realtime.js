@@ -98,7 +98,9 @@
       body: JSON.stringify({ action, password, ...payload }),
     });
     if (response.status === 401) {
-      throw new Error("The live-edit password was rejected. Try again.");
+      const error = new Error("The live-edit password was rejected.");
+      error.status = response.status;
+      throw error;
     }
     if (!response.ok) {
       const detail = await response.text();
@@ -140,33 +142,41 @@
         app.status("Could not save the latest edits on this device. Check browser storage before syncing.", "msg-error");
         return;
       }
+      const state = clone(app.getState());
+      const patches = remoteState ? patchesBetween(remoteState, state) : null;
+      if (patches && !patches.length) {
+        if (app.setPending(false) === false) {
+          app.status("Could not update the local sync marker. Check browser storage.", "msg-error");
+          return;
+        }
+        app.status("Data Synced — there are no unsaved changes.", "msg-ok");
+        return;
+      }
       if (!await app.promptName(
         "Enter your name to identify the edits you are about to share.")) {
         app.status("Sync cancelled. Your edits are still saved on this device.", "msg-warn");
         return;
       }
-      const password = await askForPassword(
+      let password = await askForPassword(
         "Enter the live-edit password to share your saved changes.");
-      app.setSyncBusy(true);
-      app.status("Sending changes to the shared tracker…", "msg-ok");
-      const state = clone(app.getState());
       let result;
-      if (!remoteState) {
-        result = await invokeWriter("initialize", { data: state }, password);
-      } else {
-        const patches = patchesBetween(remoteState, state);
-        if (!patches.length) {
-          if (app.setPending(false) === false) {
-            app.status("Could not update the local sync marker. Check browser storage.", "msg-error");
-            return;
-          }
-          app.status("Data Synced — there are no unsaved changes.", "msg-ok");
-          return;
+      while (true) {
+        app.setSyncBusy(true);
+        app.status("Sending changes to the shared tracker…", "msg-ok");
+        try {
+          result = remoteState
+            ? await invokeWriter("patch", {
+              patches,
+              author: app.getName() || "Anonymous",
+            }, password)
+            : await invokeWriter("initialize", { data: state }, password);
+          break;
+        } catch (error) {
+          app.setSyncBusy(false);
+          if (error.status !== 401) throw error;
+          app.status("Wrong password. Your changes are still saved on this device.", "msg-error");
+          password = await askForPassword("Wrong password. Please try again.");
         }
-        result = await invokeWriter("patch", {
-          patches,
-          author: app.getName() || "Anonymous",
-        }, password);
       }
       if (!result?.data || typeof result.data !== "object") {
         throw new Error("Sync returned no shared data. Your edits remain local; try again.");

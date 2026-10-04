@@ -6,6 +6,8 @@ var sequence = [];
 var writeCount = 0;
 var realtimeEvents = {};
 var sharedReadOptions = null;
+var passwordResponses = [];
+var passwordPrompts = [];
 var E = H.env({
   window: {
     SUPABASE_URL: "https://example.supabase.co",
@@ -32,9 +34,12 @@ var E = H.env({
     },
     clearTimeout: function () {},
     AuthGate: {
-      requestRealtimePassword: function () {
+      requestRealtimePassword: function (message) {
         sequence.push("password");
-        return Promise.resolve("correct horse");
+        passwordPrompts.push(message);
+        return Promise.resolve(passwordResponses.length
+          ? passwordResponses.shift()
+          : "correct horse");
       },
     },
   },
@@ -55,6 +60,13 @@ E.deps.fetch = function (url, options) {
   writeCount++;
   sequence.push("write");
   writeRequest = JSON.parse(options.body);
+  if (writeRequest.password === "wrong") {
+    return Promise.resolve({
+      status: 401,
+      ok: false,
+      text: function () { return Promise.resolve('{"error":"Wrong password"}'); },
+    });
+  }
   writeRequest.patches.forEach(function (patch) {
     var target = remote;
     patch.path.slice(0, -1).forEach(function (part) {
@@ -135,6 +147,28 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   S.eq(status, "Data Synced — no unsaved syncs remain. Excel backup queued in the background.",
        "successful writes report live sync and queued backup");
 
+  state.vendors[0].name = "Retry succeeds";
+  passwordResponses = ["wrong", "correct horse"];
+  var retryStart = sequence.length;
+  await R.RealtimeSync.syncNow();
+  S.eq(sequence.slice(retryStart), [
+    "flush-local", "name", "password", "busy", "write", "idle",
+    "password", "busy", "write", "idle",
+  ], "a rejected password keeps the sync flow available for a retry");
+  S.eq(passwordPrompts[2], "Wrong password. Please try again.",
+       "the retry password dialog clearly identifies a rejected password");
+  S.eq(remote.vendors[0].name, "Retry succeeds",
+       "a correct retry publishes the pending edit");
+  S.eq(localPending, false, "a successful retry clears the pending marker");
+  S.eq(status, "Data Synced — no unsaved syncs remain. Excel backup queued in the background.",
+       "a successful retry reports the completed sync");
+
+  var noChangesStart = sequence.length;
+  await R.RealtimeSync.syncNow();
+  S.eq(sequence.slice(noChangesStart), ["flush-local", "idle"],
+       "a sync with no changes does not ask for credentials or call the writer");
+  S.eq(writeCount, 3, "only actual edits are sent to the writer");
+
   state.vendors[0].name = "Local unsynced";
   localPending = true;
   remote.vendors[0].name = "Remote update";
@@ -142,7 +176,7 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   S.eq(state.vendors[0].name, "Local unsynced",
        "incoming realtime updates do not overwrite an unsynced local edit");
   S.eq(localPending, true, "a local edit stays marked pending after remote changes");
-  S.eq(writeCount, 1, "incoming realtime updates never trigger a database write");
+  S.eq(writeCount, 3, "incoming realtime updates never trigger a database write");
   S.ok(/tap Sync changes/.test(status), "the status tells the user how to publish local edits");
   remote.vendors[0].name = "Remote while offline";
   await R.RealtimeSync.refresh();
