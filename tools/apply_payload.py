@@ -33,6 +33,7 @@ from datetime import datetime
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
 
 # Repo root is the parent of tools/. This must be parents[1], not parents[2]:
 # a stale copy of the workbook from 28-Sep still sits one level further up in
@@ -198,10 +199,21 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
                         f"rooms: {len(nos)} room numbers for {lay['rooms']} rooms "
                         f"on {sheet.title}")
                 else:
+                    room_numbers_applied = True
                     for i, no in enumerate(nos[:lay["rooms"]]):
                         # Room numbers live in column B beside the guest-1 row.
-                        sheet[f"B{lay['blocks'][0] + i}"] = clean(no) or None
-                    applied_rn += 1
+                        cell = sheet[f"B{lay['blocks'][0] + i}"]
+                        if isinstance(cell, MergedCell):
+                            if clean(no):
+                                skipped.append(
+                                    f"rooms: room number {clean(no)!r} cannot be "
+                                    f"stored in merged cell B{cell.row} on "
+                                    f"{sheet.title}")
+                                room_numbers_applied = False
+                            continue
+                        cell.value = clean(no) or None
+                    if room_numbers_applied:
+                        applied_rn += 1
 
         # ------------------------------------------------------------ guests
         for g in payload.get("guests", []):
