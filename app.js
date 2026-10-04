@@ -531,33 +531,41 @@ function renderRoomsMobile() {
     const hs = hotelStatus(h);
     const booked = h.roomsBooked ?? h.totalRooms;
     const ri = mRoom(h);
-    const no = h.roomNos[ri] || "";
-    const lab = no ? `room ${no}` : `room ${ri + 1}`;
+    const cols = h.nights.map(n => `<th>${esc(wd(n))}</th>`).join("");
 
-    const nights = h.grid[ri].map((cell, ni) => {
-      const s = nightStatus(h, ni);
-      const inputs = Array.from({ length: SLOTS }, (_, g) => `
-          <div class="mg${g === 2 ? " slot3" : ""}">
-            <label for="mg-${h.id}-${ri}-${ni}-${g}">G${g + 1}</label>
-            <input class="ginput" id="mg-${h.id}-${ri}-${ni}-${g}" type="text"
-                   value="${esc(cell[g])}" placeholder="${g === 2 ? "+1 billable" : ""}"
-                   data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}"
-                   enterkeyhint="next" autocomplete="off"
-                   aria-label="${esc(lab)} guest ${g + 1}, ${esc(h.nights[ni])}">
-          </div>`).join("");
-      return `<div class="mnight" data-n="${ni}">
-          <div class="mnight-h">
-            <span class="d">${esc(wd(h.nights[ni]))}</span>
-            <span class="s ${s.cls}">${s.f} of ${s.need} rooms &middot; ${esc(s.txt)}</span>
-          </div>${inputs}</div>`;
+    const rows = h.grid.map((row, ri) => {
+      const bookedCls = ri >= booked ? " unbooked" : "";
+      const filledCls = row.some(c => c.some(Boolean)) ? " filled" : "";
+      const no = h.roomNos[ri] || "";
+      const lab = no ? `room ${no}` : `room ${ri + 1}`;
+      const cells = h.nights.map((_, ni) => {
+        const cell = row[ni];
+        const s = nightStatus(h, ni);
+        const inputs = Array.from({ length: SLOTS }, (_, g) => `
+              <input type="text" value="${esc(cell[g])}" placeholder="G${g + 1}"
+                     data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}"
+                     enterkeyhint="next" autocomplete="off"
+                     aria-label="${esc(lab)} guest ${g + 1}, ${esc(h.nights[ni])}">`).join("");
+        return `<td${cell.some(Boolean) ? ' class="filled"' : ""} title="${esc(s.txt)}">
+            <div class="gcell${cell[2] ? " has-third" : ""}">${inputs}</div></td>`;
+      }).join("");
+      return `<tr class="${bookedCls}${filledCls}" data-r="${ri}">
+        <td class="sticky-col">${no ? esc(no) : "Room " + (ri + 1)}</td>${cells}
+        <td class="num rtot" title="guest-nights in this room">${roomGuests(h, ri)}</td>
+      </tr>`;
     }).join("");
+
+    const totalRow = (label, fn) => `
+            <tr class="total" data-row="${label}"><td class="sticky-col">${label}</td>
+              ${h.nights.map((_, i) => `<td class="num">${fn(i)}</td>`).join("")}
+              <td class="num"></td></tr>`;
 
     return `<div class="panel">
       <div class="panel-h">
         <div><h3>${esc(h.name)}</h3>
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
-            <span>Check-out <b>${esc(h.checkOut)}</b></span>
+            <span>Check-out <b>${esc(h.checkOut)}</b>${h.checkoutTime ? " at " + esc(h.checkoutTime) : ""}</span>
             <span class="bookedwrap">Rooms booked
               <input class="booked" type="number" inputmode="numeric" min="0" max="${h.totalRooms}"
                      value="${booked}" data-h="${h.id}" data-k="booked"
@@ -569,18 +577,20 @@ function renderRoomsMobile() {
       </div>
       <div class="sumcards">${sumCards(h, hs)}</div>
       <div class="roomchips" role="group" aria-label="Choose a room at ${esc(h.name)}">${mobileChips(h)}</div>
-      <div class="msheet" data-h="${h.id}">
-        <div class="msheet-h">
-          <span class="t">${no ? "Room " + esc(no) : "Room " + (ri + 1)}</span>
-          <div class="mstats">${mobileStatsPills(h, ri)}</div>
-        </div>
-        ${nights}
-        <div class="mnav">
-          <button class="btn" type="button" data-nav="prev" data-h="${h.id}" data-r="${ri}"
-                  ${ri === 0 ? "disabled" : ""}>&larr; Room ${ri > 0 ? ri : 1}</button>
-          <button class="btn" type="button" data-nav="next" data-h="${h.id}" data-r="${ri}"
-                  ${ri >= h.grid.length - 1 ? "disabled" : ""}>Room ${ri + 2} &rarr;</button>
-        </div>
+      <div class="table-scroll">
+        <table class="grid">
+          <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
+          <tbody>${rows}
+            ${totalRow("Filled", i => filledRooms(h, i))}
+            ${totalRow("Needed", i => h.needed[i])}
+            ${totalRow("Guests", i => nightGuests(h, i))}
+            ${totalRow("3rd guests", i => nightThird(h, i))}
+            <tr class="total" data-row="status"><td class="sticky-col">Status</td>
+              ${h.nights.map((_, i) => { const s = nightStatus(h, i);
+                return `<td class="num"><span class="pill ${s.cls}">${esc(s.txt)}</span></td>`; }).join("")}
+              <td class="num"></td></tr>
+          </tbody>
+        </table>
       </div>
       <ul class="notes">${h.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>
     </div>`;
