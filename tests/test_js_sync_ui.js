@@ -7,6 +7,7 @@ var A = H.load(["app.js", "sync.js"], E.deps, [
   "setSt:function(v){st=v;}",
   "setBase:function(v){base=v;}",
   "save", "setSaveIndicator", "reportRealtimeStatus", "renderAll",
+  "renderRoomsMobile", "mSel",
 ]);
 var S = new H.Suite("SYNC UI / status and shared tabs");
 
@@ -90,5 +91,31 @@ S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("80,000"),
      "Payments summary refreshes after a shared change");
 S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("Updated remotely"),
      "Invoices view remains populated after a shared change");
+
+state.hotels[0].totalRooms = 2;
+state.hotels[0].roomsBooked = 2;
+state.hotels[0].roomNos.push("");
+state.hotels[0].grid.push([["", "", ""]]);
+A.mSel.nirmal = 0;
+A.renderRoomsMobile();
+var mobileRooms = E.doc.querySelector("#hotelMobile").innerHTML;
+S.ok(mobileRooms.includes("hotel room number for Room 1")
+     && mobileRooms.includes('data-k="roomNo" data-r="0"'),
+     "the selected room has an editable actual hotel room-number field");
+S.ok(mobileRooms.includes("Tap a room above to switch the guest fields"),
+     "the mobile room picker explains what selecting a room does");
+S.ok(/<td[^>]*>101<\/td>/.test(mobileRooms),
+     "the first room shows its own guest table and hotel number when selected");
+S.ok(!/<td[^>]*>Room 2<\/td>/.test(mobileRooms),
+     "guest tables for other rooms stay hidden until that room is selected");
+
+A.mSel.nirmal = 1;
+A.renderRoomsMobile();
+mobileRooms = E.doc.querySelector("#hotelMobile").innerHTML;
+S.ok(mobileRooms.includes("hotel room number for Room 2")
+     && mobileRooms.includes('data-k="roomNo" data-r="1"'),
+     "selecting another room switches its hotel room-number input");
+S.ok(/data-r="1" data-n="0" data-g="0"/.test(mobileRooms),
+     "selecting another room switches the guest-name fields too");
 
 finish([S]);

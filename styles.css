@@ -345,6 +345,7 @@ details.inv[open]>summary:after{content:"\25B4"}
 .roomchip small{font-size:.66rem;font-weight:500;color:var(--ink-mute);letter-spacing:.02em}
 .roomchip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
 .roomchip[aria-pressed="true"] small{color:rgba(255,255,255,.85)}
+.roomchip[aria-pressed="true"]{box-shadow:0 0 0 2px var(--brand-ink)}
 .roomchip.unbooked{opacity:.55}
 .roomchip.unbooked small{text-decoration:line-through}
 .roomchip.has-third{border-color:var(--butter-ink)}
@@ -355,6 +356,12 @@ details.inv[open]>summary:after{content:"\25B4"}
   padding-bottom:8px;margin-bottom:8px;border-bottom:2px solid var(--line-soft);flex-wrap:wrap}
 .msheet-h .t{font-size:1.05rem;font-weight:700}
 .mstats{display:flex;gap:6px;flex-wrap:wrap}
+.mroom-number{margin:8px 0 12px;padding:12px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--surface-2)}
+.mroom-number label{display:block;color:var(--ink-soft);font-size:.78rem;
+  font-weight:700;letter-spacing:.04em;margin-bottom:6px}
+.mroom-number .roomno{min-height:50px;background:var(--edit)}
+.room-picker-hint{margin:2px 0 8px;color:var(--ink-mute);font-size:.82rem}
 
 .mnight{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 0;
   border-bottom:1px solid var(--line-soft)}
@@ -465,12 +472,22 @@ table.grid thead th.g-detail{background:var(--surface-2);border-left:2px solid v
   .mobile-tools>summary::-webkit-details-marker{display:none}
   .mobile-tools-menu{display:none}
   .mobile-tools[open] .mobile-tools-menu{
-    display:flex;position:absolute;right:0;top:calc(100% + 8px);z-index:50;
-    min-width:148px;flex-direction:column;gap:6px;padding:8px;
-    border:1px solid var(--line);border-radius:var(--r);
-    background:var(--surface);box-shadow:0 8px 24px #0003
+    display:flex;position:absolute;left:0;right:auto;top:calc(100% + 8px);z-index:50;
+      width:min(280px,calc(100vw - 24px));flex-direction:column;gap:8px;padding:10px;
+      border:2px solid var(--line-strong);border-radius:14px;
+      background:var(--surface);box-shadow:0 12px 32px #0008
   }
-  .mobile-tools-menu .btn{width:100%}
+    .mobile-tools-menu .btn{
+      width:100%;min-height:64px;padding:10px 12px;justify-content:flex-start;
+      white-space:normal;text-align:left;background:var(--surface-2);
+      border:2px solid var(--line-strong);color:var(--ink);font-size:.95rem
+    }
+    .mobile-tools-menu .btn-print{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+    .mobile-tools-menu .btn-reset{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
+    .mobile-tools-menu .tool-copy{display:flex;flex-direction:column;line-height:1.3}
+    .mobile-tools-menu .tool-copy strong{font-size:1rem}
+    .mobile-tools-menu .tool-copy small{font-size:.78rem;font-weight:500}
+    .mobile-tools-menu .btn:active{filter:brightness(.94)}
 
   .vendor-scroll{overflow:visible;border:0;border-radius:0;background:transparent}
   #vendorTable{display:block;width:100%;font-size:.9rem}
@@ -512,6 +529,7 @@ table.grid thead th.g-detail{background:var(--surface-2);border-left:2px solid v
   #vendorTable td.vendor-remove{position:absolute;right:8px;top:8px;padding:0}
   #vendorTable td.vendor-remove::before{display:none}
   #vendorTable .row-del{min-width:40px;min-height:40px;border-radius:10px}
+  .mroom-number{padding:10px}
   .vendor-actions{margin:12px 0}
   .vendor-actions .btn{width:100%}
   .foot p:first-child,.foot .love{display:none}

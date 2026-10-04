@@ -597,8 +597,9 @@ function mobileChips(h) {
     const no = h.roomNos[ri] || "";
     return `<button type="button" class="roomchip${ri >= booked ? " unbooked" : ""}${
         row.some(c => c[2]) ? " has-third" : ""}" data-h="${h.id}" data-r="${ri}"
-        aria-pressed="${ri === sel}">
-        ${no ? esc(no) : ri + 1}<small>Room ${ri + 1}</small></button>`;
+        aria-pressed="${ri === sel}" aria-label="Edit Room ${ri + 1}${
+          no ? `, hotel room ${esc(no)}` : ", hotel room number not entered"}">
+        ${no ? esc(no) : ri + 1}<small>${ri === sel ? "Selected · " : ""}Room ${ri + 1}</small></button>`;
   }).join("");
 }
 function renderRoomsMobile() {
@@ -609,7 +610,8 @@ function renderRoomsMobile() {
     const ri = mRoom(h);
     const cols = h.nights.map(n => `<th>${esc(wd(n))}</th>`).join("");
 
-    const rows = h.grid.map((row, ri) => {
+    const row = h.grid[ri];
+    const rows = [row].filter(Boolean).map((row) => {
       const bookedCls = ri >= booked ? " unbooked" : "";
       const filledCls = row.some(c => c.some(Boolean)) ? " filled" : "";
       const no = h.roomNos[ri] || "";
@@ -653,6 +655,14 @@ function renderRoomsMobile() {
       </div>
       <div class="sumcards">${sumCards(h, hs)}</div>
       <div class="roomchips" role="group" aria-label="Choose a room at ${esc(h.name)}">${mobileChips(h)}</div>
+      <p class="room-picker-hint">Tap a room above to switch the guest fields and hotel room number shown below.</p>
+      <div class="mroom-number">
+        <label for="roomno-${esc(h.id)}-${ri + 1}">Actual hotel room number · Room ${ri + 1}</label>
+        <input class="roomno" id="roomno-${esc(h.id)}-${ri + 1}" type="text" inputmode="numeric"
+               value="${esc(h.roomNos[ri] || "")}" placeholder="Enter the room number"
+               data-h="${h.id}" data-k="roomNo" data-r="${ri}"
+               aria-label="Actual hotel room number for Room ${ri + 1} at ${esc(h.name)}">
+      </div>
       <div class="table-scroll">
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
@@ -1012,13 +1022,17 @@ function wire() {
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
-  $$(".btn-print").forEach(button => { button.onclick = () => window.print(); });
+  $$(".btn-print").forEach(button => { button.onclick = () => {
+    button.closest(".mobile-tools")?.removeAttribute("open");
+    window.print();
+  }; });
 
   $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();
   const bar = $("#btnSyncBar");
   if (bar) bar.onclick = () => window.RealtimeSync?.syncNow();
 
   $$(".btn-reset").forEach(button => { button.onclick = () => {
+    button.closest(".mobile-tools")?.removeAttribute("open");
     if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
     clearTimeout(saveT); saveT = 0; saveDirty = false;
     localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0");

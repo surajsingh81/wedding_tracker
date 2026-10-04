@@ -59,7 +59,9 @@ changes does not request credentials.
 **Reset** discards this device's pending edits and restores the latest shared
 state. Excel remains an asynchronous backup, not the live source of truth.
 On phones, vendor rows are shown as labeled edit cards instead of a wide
-spreadsheet; the theme follows the phone's light/dark appearance setting.
+spreadsheet; the theme follows the phone's light/dark appearance setting. In
+Rooms & Guests, choose a room chip to show only that room's guest fields, then
+enter its actual hotel-assigned room number in the labeled box.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.

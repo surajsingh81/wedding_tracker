@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 
@@ -83,8 +83,12 @@
       <details class="mobile-tools">
         <summary class="btn">More</summary>
         <div class="mobile-tools-menu">
-          <button class="btn btn-print" title="Print or save as PDF">Print</button>
-          <button class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
+          <button type="button" class="btn btn-print" title="Print or save as PDF">
+            <span class="tool-copy"><strong>Print / Save PDF</strong><small>Open print options</small></span>
+          </button>
+          <button type="button" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">
+            <span class="tool-copy"><strong>Reset local edits</strong><small>Discard unsynced changes</small></span>
+          </button>
         </div>
       </details>
       <button id="btnSync" class="btn primary" data-pending="0" title="Share your saved changes; asks for your name and password">Sync changes</button>
@@ -131,9 +135,9 @@
     <!-- Phone: a room picker plus one room at a time, filled top to bottom. -->
     <div id="hotelMobile" class="mobile-only"></div>
     <p class="hint mobile-only">
-      Scroll left/right to see more nights. Tap a room chip to jump to it.
+      Tap a room above to edit that room&rsquo;s guest names and enter its actual hotel room number.
       <strong>G1</strong> and <strong>G2</strong> are the room rate;
-      <strong>G3</strong> is the extra person the hotel bills on top.
+      <strong>G3</strong> is the extra person the hotel bills on top. Swipe the guest table sideways for other dates.
     </p>
   </section>
 
@@ -192,6 +196,6 @@
 <script src="auth.js?v=15"></script>
 <script src="realtime.js?v=25"></script>
 <script src="sync.js?v=14"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
