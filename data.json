@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-03",
+ "generated": "2026-10-04",
  "event": "Wedding - December 2026",
  "hotels": [
   {
@@ -9,6 +9,19 @@
    "checkOut": "14-Dec-2026",
    "checkoutTime": "",
    "totalRooms": 10,
+   "roomsBooked": 10,
+   "roomNos": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+   ],
    "totalRoomNights": 37,
    "nights": [
     "08-Dec-2026",
@@ -302,6 +315,16 @@
    "checkOut": "12-Dec-2026",
    "checkoutTime": "12:30 PM",
    "totalRooms": 7,
+   "roomsBooked": 7,
+   "roomNos": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+   ],
    "totalRoomNights": 23,
    "nights": [
     "08-Dec-2026",
