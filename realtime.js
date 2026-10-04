@@ -94,7 +94,11 @@
     const url = `${window.SUPABASE_URL}/functions/v1/tracker-write`;
     const response = await fetch(url, {
       method: "POST",
-      headers: { ...headers(), "Content-Type": "application/json" },
+      headers: {
+        apikey: window.SUPABASE_PUBLIC_KEY,
+        Authorization: `Bearer ${window.SUPABASE_PUBLIC_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ action, password, ...payload }),
     });
     if (response.status === 401) {

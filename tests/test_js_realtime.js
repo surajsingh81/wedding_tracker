@@ -8,6 +8,7 @@ var realtimeEvents = {};
 var sharedReadOptions = null;
 var passwordResponses = [];
 var passwordPrompts = [];
+var writerHeaders = null;
 var E = H.env({
   window: {
     SUPABASE_URL: "https://example.supabase.co",
@@ -59,6 +60,7 @@ E.deps.fetch = function (url, options) {
   }
   writeCount++;
   sequence.push("write");
+  writerHeaders = options.headers;
   writeRequest = JSON.parse(options.body);
   if (writeRequest.password === "wrong") {
     return Promise.resolve({
@@ -139,6 +141,10 @@ var S = new H.Suite("REALTIME / Supabase shared state");
   }], "only the changed field is sent");
   S.eq(writeRequest.author, "Aarti", "the editor name accompanies the write");
   S.eq(writeRequest.password, "correct horse", "the prompted password accompanies the write");
+  S.eq(Object.keys(writerHeaders).sort(), ["Authorization", "Content-Type", "apikey"],
+       "writer requests send only headers allowed by the Edge Function CORS policy");
+  S.eq(writerHeaders["Cache-Control"], undefined,
+       "writer requests omit cache-control to avoid a browser CORS preflight rejection");
   S.eq(sequence, ["flush-local", "name", "password", "busy", "write", "idle"],
        "manual sync asks name then password before writing and only then shows busy");
   S.eq(remote.vendors[0].name, "Updated", "successful writes update shared state");
