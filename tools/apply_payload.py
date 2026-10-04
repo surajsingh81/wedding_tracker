@@ -34,13 +34,13 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
+from openpyxl.utils import get_column_letter
 
 # Repo root is the parent of tools/. This must be parents[1], not parents[2]:
 # a stale copy of the workbook from 28-Sep still sits one level further up in
 # the workspace, and a default that points at it would silently discard edits.
 ROOT = Path(__file__).resolve().parents[1]
 XLSX = ROOT / "Wedding_Expense_Tracker_Dec2026.xlsx"
-NIGHT_COLS = ["C", "D", "E", "F", "G", "H"]
 VENDOR_COLS = {  # payload field -> workbook column
     "contact": "B", "phone": "C", "whatsapp": "D", "address": "F",
     "event": "G", "eventDate": "H", "quoted": "I", "paid": "J",
@@ -72,10 +72,9 @@ def num_or_blank(v):
 
 def hotel_sheet(wb, label):
     """Map a hotel name from the payload to its worksheet, or None."""
-    for name in ("Nirmal", "Amarai"):
-        if clean(label).upper() == name.upper():
-            return wb[name]
-    return None
+    target = clean(label).casefold()
+    return next((sheet for sheet in wb.worksheets
+                 if sheet.title.casefold() == target), None)
 
 
 def hotel_layout(sheet):
@@ -99,6 +98,164 @@ def hotel_layout(sheet):
     blocks = [g1a, g2a, g3a] if has3 else [g1a, g2a]
     return {"hdr": hdr, "rooms": rooms, "blocks": blocks,
             "F": blocks[-1] + rooms}
+
+
+def create_hotel_sheet(wb, details):
+    """Create an Excel hotel sheet using the workbook's existing visual styles."""
+    name = clean(details.get("hotel"))
+    nights = details.get("nights")
+    needed = details.get("needed")
+    try:
+        rooms = int(details.get("totalRooms"))
+    except (TypeError, ValueError):
+        return None
+    if (not name or len(name) > 31 or any(c in name for c in r'\/:*?[]')
+            or name.casefold() in {sheet.title.casefold() for sheet in wb.worksheets}
+            or not 1 <= rooms <= 500 or not isinstance(nights, list)
+            or not 1 <= len(nights) <= 90 or not isinstance(needed, list)
+            or len(needed) != len(nights)):
+        return None
+    try:
+        counts = [int(value) for value in needed]
+    except (TypeError, ValueError):
+        return None
+    if any(count < 0 or count > rooms for count in counts):
+        return None
+    if any(not isinstance(date, str) or not date for date in nights):
+        return None
+
+    template = wb["Nirmal"] if "Nirmal" in wb.sheetnames else wb.active
+    style_cells = {
+        "title": "A1", "subtitle": "A2", "bar": "A4", "label": "A5",
+        "value": "B5", "header": "A11", "header2": "B11", "date": "A12",
+        "number": "B12", "gridbar": "A20", "gridhead": "A21",
+        "griddate": "C21", "roomlabel": "A22", "roominput": "C22",
+        "summary": "A43", "formula": "C43", "needlabel": "A44",
+        "neednumber": "C44", "status": "A45",
+    }
+    styles = {key: copy(template[coord]._style) for key, coord in style_cells.items()}
+    ws = wb.copy_worksheet(template)
+    ws.title = name
+    for merged in list(ws.merged_cells.ranges):
+        ws.unmerge_cells(str(merged))
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.value = None
+            cell._style = None
+            cell.hyperlink = None
+            cell.comment = None
+    ws.sheet_view.showGridLines = False
+
+    def put(row, col, value, style=None):
+        cell = ws.cell(row, col, value)
+        if style:
+            cell._style = copy(style)
+        return cell
+
+    last_col = 2 + len(nights)
+    last_letter = get_column_letter(last_col)
+
+    def bar(row, text):
+        put(row, 1, text, styles["bar"])
+        ws.merge_cells(start_row=row, start_column=1,
+                       end_row=row, end_column=last_col)
+
+    put(1, 1, f"{name.upper()} — ROOM PLAN BY NIGHT", styles["title"])
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_col)
+    put(2, 1, f"Check-in {clean(details.get('checkIn'))}  |  "
+        f"Check-out {clean(details.get('checkOut'))}  |  {rooms} rooms available",
+        styles["subtitle"])
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_col)
+
+    bar(4, "BOOKING")
+    metadata = [
+        ("Check-in", details.get("checkIn", "")),
+        ("Check-out", details.get("checkOut", "")),
+        ("Rooms booked", max(counts, default=0)),
+        ("Total rooms", rooms),
+        ("Total room-nights", sum(counts)),
+    ]
+    for row, (label, value) in enumerate(metadata, 5):
+        put(row, 1, label, styles["label"])
+        put(row, 2, value, styles["value"])
+
+    bar(11, "ROOMS NEEDED PER NIGHT")
+    put(12, 1, "Date", styles["header"])
+    put(12, 2, "Rooms", styles["header2"])
+    for index, (date, count) in enumerate(zip(nights, counts), 13):
+        put(index, 1, date[:6], styles["date"])
+        put(index, 2, count, styles["number"])
+    total_row = 13 + len(nights)
+    put(total_row, 1, "TOTAL", styles["header"])
+    put(total_row, 2, f"=SUM(B13:B{total_row - 1})", styles["header2"])
+
+    grid_bar = total_row + 2
+    bar(grid_bar, "ROOM ALLOCATION GRID")
+    hdr = grid_bar + 1
+    put(hdr, 1, "Room", styles["gridhead"])
+    put(hdr, 2, "Room no.", styles["gridhead"])
+    for index, date in enumerate(nights, 3):
+        put(hdr, index, date, styles["griddate"])
+    put(hdr, last_col + 1, "Notes", styles["gridhead"])
+
+    g1a = hdr + 1
+    g2a = g1a + rooms + 1
+    g3a = g2a + rooms + 1
+    for slot, first in enumerate((g1a, g2a, g3a), 1):
+        for room in range(rooms):
+            row = first + room
+            put(row, 1, f"Room {room + 1} - Guest {slot}", styles["roomlabel"])
+            if slot == 1:
+                room_nos = details.get("roomNos") or []
+                put(row, 2, clean(room_nos[room]) if room < len(room_nos) else "",
+                    styles["roomlabel"])
+            for col in range(3, last_col + 1):
+                put(row, col, None, styles["roominput"])
+        if slot < 3:
+            divider_row = first + rooms
+            title = ("SECOND GUEST PER ROOM" if slot == 1
+                     else "THIRD GUEST PER ROOM")
+            bar(divider_row, title)
+
+    filled_row = g3a + rooms
+    needed_row = filled_row + 1
+    status_row = filled_row + 2
+    guest_row = filled_row + 3
+    third_row = filled_row + 4
+    for row, label, style in (
+        (filled_row, "FILLED", styles["summary"]),
+        (needed_row, "NEEDED", styles["needlabel"]),
+        (status_row, "STATUS", styles["status"]),
+        (guest_row, "GUESTS", styles["summary"]),
+        (third_row, "3rd GUESTS", styles["summary"]),
+    ):
+        put(row, 1, label, style)
+    for index, count in enumerate(counts, 3):
+        col = get_column_letter(index)
+        put(filled_row, index,
+            f'=SUMPRODUCT(--(((%s%d:%s%d<>"")+(%s%d:%s%d<>"")+(%s%d:%s%d<>""))>0))'
+            % (col, g1a, col, g1a + rooms - 1,
+               col, g2a, col, g2a + rooms - 1,
+               col, g3a, col, g3a + rooms - 1), styles["formula"])
+        put(needed_row, index, count, styles["neednumber"])
+        put(status_row, index,
+            f'=IF({col}{filled_row}={col}{needed_row},'
+            f'IF({col}{needed_row}=0,"No rooms pre-booked","Guest details complete"),'
+            f'IF({col}{filled_row}<{col}{needed_row},'
+            f'({col}{needed_row}-{col}{filled_row})&" pre-booked room(s) missing guest details",'
+            f'({col}{filled_row}-{col}{needed_row})&" room(s) beyond pre-booked count with guest details"))')
+        put(guest_row, index,
+            f'=COUNTIF({col}{g1a}:{col}{g1a + rooms - 1},"<>")'
+            f'+COUNTIF({col}{g2a}:{col}{g2a + rooms - 1},"<>")'
+            f'+COUNTIF({col}{g3a}:{col}{g3a + rooms - 1},"<>")', styles["formula"])
+        put(third_row, index,
+            f'=COUNTIF({col}{g3a}:{col}{g3a + rooms - 1},"<>")', styles["formula"])
+
+    ws.column_dimensions["A"].width = 30
+    ws.column_dimensions["B"].width = 12
+    for col in range(3, last_col + 2):
+        ws.column_dimensions[get_column_letter(col)].width = 18
+    return ws
 
 
 def _sibling_generated(target: Path):
@@ -165,8 +322,12 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
         for rb in payload.get("rooms", []):
             sheet = hotel_sheet(wb, rb.get("hotel", ""))
             if sheet is None:
-                skipped.append(f"rooms: unknown hotel {rb.get('hotel')!r}")
-                continue
+                sheet = create_hotel_sheet(wb, rb)
+                if sheet is None:
+                    skipped.append(
+                        f"rooms: unknown hotel {rb.get('hotel')!r}; "
+                        "new hotel details are invalid or incomplete")
+                    continue
             lay = hotel_layout(sheet)
             if not lay:
                 skipped.append(f"rooms: layout not found on {sheet.title}")
@@ -215,6 +376,57 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
                     if room_numbers_applied:
                         applied_rn += 1
 
+            needed = rb.get("needed")
+            nights = rb.get("nights")
+            if isinstance(needed, list) and isinstance(nights, list):
+                header_row = lay["hdr"]
+                night_columns = {}
+                for col_index in range(3, sheet.max_column + 1):
+                    date = clean(sheet.cell(header_row, col_index).value)
+                    if not date or date.casefold() == "notes":
+                        break
+                    night_columns[date] = col_index
+                needed_row = find_row(sheet, "NEEDED")
+                if (needed_row is None or len(needed) != len(nights)
+                        or any(date not in night_columns for date in nights)):
+                    skipped.append(
+                        f"rooms: nightly pre-booked counts do not match dates on {sheet.title}")
+                else:
+                    try:
+                        counts = [int(value) for value in needed]
+                    except (TypeError, ValueError):
+                        skipped.append(f"rooms: invalid nightly pre-booked counts on {sheet.title}")
+                    else:
+                        if any(count < 0 or count > lay["rooms"] for count in counts):
+                            skipped.append(
+                                f"rooms: nightly pre-booked count outside 0..{lay['rooms']} "
+                                f"on {sheet.title}")
+                        else:
+                            for date, count in zip(nights, counts):
+                                col_index = night_columns[date]
+                                sheet.cell(needed_row, col_index).value = count
+                                room_rows = find_row(sheet, "ROOMS NEEDED PER NIGHT")
+                                if room_rows:
+                                    first_date_row = room_rows + 2
+                                    short_date = date[:6]
+                                    for row_index in range(first_date_row, sheet.max_row + 1):
+                                        if clean(sheet.cell(row_index, 1).value) == short_date:
+                                            sheet.cell(row_index, 2).value = count
+                                            break
+                                status_row = find_row(sheet, "STATUS")
+                                filled_row = find_row(sheet, "FILLED")
+                                if status_row and filled_row:
+                                    col = get_column_letter(col_index)
+                                    sheet.cell(status_row, col_index).value = (
+                                        f'=IF({col}{filled_row}={col}{needed_row},'
+                                        f'IF({col}{needed_row}=0,"No rooms pre-booked",'
+                                        f'"Guest details complete"),'
+                                        f'IF({col}{filled_row}<{col}{needed_row},'
+                                        f'({col}{needed_row}-{col}{filled_row})&'
+                                        f'" pre-booked room(s) missing guest details",'
+                                        f'({col}{filled_row}-{col}{needed_row})&'
+                                        f'" room(s) beyond pre-booked count with guest details"))')
+
         # ------------------------------------------------------------ guests
         for g in payload.get("guests", []):
             sheet = hotel_sheet(wb, g.get("hotel", ""))
@@ -226,8 +438,10 @@ def apply_payloads(payloads, target, do_export=False, make_backup=True):
                 skipped.append(f"guest: layout not found on {sheet.title}")
                 continue
             hdr, rooms = lay["hdr"], lay["rooms"]
-            col = next((c for c in NIGHT_COLS
-                        if clean(sheet[f"{c}{hdr}"].value) == clean(g.get("night"))), None)
+            col = next((get_column_letter(col_index)
+                        for col_index in range(3, sheet.max_column + 1)
+                        if clean(sheet.cell(hdr, col_index).value)
+                        == clean(g.get("night"))), None)
             if col is None:
                 skipped.append(f"guest: night {g.get('night')!r} not found on {sheet.title}")
                 continue

@@ -1,17 +1,16 @@
-/* Wedding tracker — all state lives in localStorage; nothing is sent anywhere.
+/* Wedding tracker — edits stay in localStorage until the user presses Sync.
    A fresh data.json (exported from the workbook) is the baseline to reset to.
 
    v14 changes
    -----------
-   * Name gate: the person's name is asked for the first time they finish an
-     edit, and again before a save — always BEFORE the password prompt.
+   * Manual sync: guest and vendor edits stay on this device until Sync is
+     pressed. The name and password prompts are shown only for that action.
    * Mobile entry layer: a room picker plus a one-room-at-a-time sheet, so
      filling 10 rooms x 6 nights x 3 guests is a vertical scroll, not a
      horizontal one. The desktop grid is unchanged and still drives both paths.
-   * Faster data exchange:
-       - data.json is cached in localStorage with its ETag, so a repeat load is
-         a 304 with zero bytes instead of a full download, and the app still
-         opens offline.
+   * Data exchange:
+       - Supabase and the workbook export are requested fresh on each load.
+         A last-known snapshot is retained only for offline fallback.
        - localStorage writes are coalesced: a burst of keystrokes costs one
          JSON.stringify + one write, not one per character.
        - the sync payload is a delta against the last export (see sync.js), which
@@ -21,61 +20,70 @@
    a browser. */
 
 const KEY = "wedding-tracker-v1";
-const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in Excel
+const PENDING_KEY = "wedding-tracker-pending-v1";   // "1" = edits not yet in shared state
 const CHANGES_KEY = "tracker-changes-v1";
 const NAME_KEY = "tracker-name-v1";
-const CACHE_KEY = "wedding-tracker-cache-v1";       // {etag, data} for fast loads
+const CACHE_KEY = "wedding-tracker-cache-v1";       // last-known snapshot for offline fallback
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-// Live data source: the GitHub API serves data.json the moment the Action
-// commits it (no Pages rebuild wait). Falls back to the Pages copy.
-const DATA_API = "https://api.github.com/repos/surajsingh81/wedding_tracker/contents/data.json";
+// Raw GitHub serves data.json as soon as the workbook workflow commits it.
+const DATA_URL = "https://raw.githubusercontent.com/surajsingh81/wedding_tracker/main/data.json";
 
-let base = null;   // last Excel export (immutable baseline)
+let base = null;   // last shared snapshot, initially loaded from the workbook export
 let st   = null;   // live state = base + local edits
 
-/* ------------------------------------------------------- fast baseline load
-   A 304 answers in a few bytes; the Pages fallback and an offline launch both
-   land on the cached copy. Three ordered sources, first success wins. */
+/* ------------------------------------------------------ fresh baseline load
+   Always prefer an uncached database/workbook read. The local snapshot is an
+   offline-only fallback, never a freshness shortcut. */
 function readCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); }
   catch { return null; }
 }
-function writeCache(etag, data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ etag: etag || null, data })); }
+function writeCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data })); }
   catch { /* quota — the cache is an optimisation, never a requirement */ }
 }
-function decodeGithubContent(meta) {
-  // UTF-8 (₹, en-dashes, names). atob() alone decodes as Latin-1 and mangles
-  // every non-ASCII character, so go through bytes + TextDecoder.
-  const bin = atob(meta.content.replace(/\s+/g, ""));
-  return JSON.parse(new TextDecoder("utf-8").decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+function discardLocalDraft() {
+  localStorage.removeItem(KEY);
+  localStorage.setItem(PENDING_KEY, "0");
 }
-
 async function loadData() {
+  const shared = await window.RealtimeSync?.load();
+  if (shared) return shared;
   const cache = readCache();
+  const noCache = {
+    "Cache-Control": "no-cache, no-store, max-age=0",
+    Pragma: "no-cache",
+  };
   try {
-    const headers = cache?.etag ? { "If-None-Match": cache.etag } : {};
-    const r = await fetch(DATA_API, { cache: "no-cache", headers });
-    if (r.status === 304 && cache?.data) return cache.data;
-    if (r.ok) {
-      const meta = await r.json();
-      if (meta.content) {
-        const d = decodeGithubContent(meta);
-        writeCache(meta.etag || r.headers.get("etag"), d);
-        return d;
-      }
-    }
-  } catch (e) { /* fall through to the Pages copy */ }
+    const url = new URL(DATA_URL);
+    url.searchParams.set("fresh", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const response = await fetch(url, { cache: "no-store", headers: noCache });
+    if (!response.ok) throw new Error(`Fresh workbook data request failed (HTTP ${response.status})`);
+    const data = await response.json();
+    writeCache(data);
+    return data;
+  } catch (error) {
+    console.warn("Fresh GitHub workbook data could not be loaded.", error);
+  }
 
   try {
-    const d = await (await fetch("data.json", { cache: "no-cache" })).json();
-    writeCache(null, d);
-    return d;
-  } catch (e) { /* fall through to the cache */ }
+    const url = new URL("data.json", window.location.href);
+    url.searchParams.set("fresh", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const response = await fetch(url, { cache: "no-store", headers: noCache });
+    if (!response.ok) throw new Error(`Website data request failed (HTTP ${response.status})`);
+    const data = await response.json();
+    writeCache(data);
+    return data;
+  } catch (error) {
+    console.warn("Fresh website data could not be loaded.", error);
+  }
 
-  if (cache?.data) return cache.data;
+  if (cache?.data) {
+    syncStatus("Could not reach Supabase or a fresh workbook export. Showing this device's offline snapshot.", "msg-warn");
+    return cache.data;
+  }
   throw new Error("could not load data.json");
 }
 
@@ -90,7 +98,12 @@ function normalize(d) {
   for (const h of d.hotels || []) {
     const nights = h.nights || [];
     h.totalRooms = h.totalRooms ?? (h.grid ? h.grid.length : 0);
-    h.roomsBooked = Number.isFinite(+h.roomsBooked) ? +h.roomsBooked : h.totalRooms;
+    const defaultPrebooked = Number.isFinite(+h.roomsBooked) ? +h.roomsBooked : h.totalRooms;
+    h.needed = Array.from({ length: nights.length }, (_, i) => {
+      const count = h.needed?.[i] == null ? defaultPrebooked : Number(h.needed[i]);
+      return Number.isFinite(count) ? Math.max(0, Math.min(h.totalRooms, Math.floor(count))) : 0;
+    });
+    h.roomsBooked = Math.max(0, ...h.needed);
     h.roomNos = Array.from({ length: h.totalRooms }, (_, i) => h.roomNos?.[i] ?? "");
     h.grid = (h.grid || []).map(row =>
       (row || []).map(cell => Array.from({ length: SLOTS }, (_, g) => cell?.[g] ?? "")));
@@ -103,20 +116,142 @@ function normalize(d) {
   return d;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const newHotelNightCounts = {};
+function formatTrackerDate(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return "";
+  const [, year, month, day] = match;
+  return `${day}-${MONTHS[+month - 1]}-${year}`;
+}
+function hotelNightsFromDates(checkIn, checkOut) {
+  const start = Date.parse(`${checkIn}T00:00:00Z`);
+  const end = Date.parse(`${checkOut}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+  const count = (end - start) / 86400000;
+  if (count > 90) return [];
+  return Array.from({ length: count }, (_, i) =>
+    formatTrackerDate(new Date(start + i * 86400000).toISOString().slice(0, 10)));
+}
+function trackerDateToISO(value) {
+  const match = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(value);
+  if (!match) return "";
+  const month = MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase()) + 1;
+  return month ? `${match[3]}-${String(month).padStart(2, "0")}-${match[1]}` : "";
+}
+function hotelId(name) {
+  const slug = String(name).normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return slug || "hotel";
+}
+function makeHotel(name, checkIn, checkOut, capacity, needed) {
+  const nights = hotelNightsFromDates(checkIn, checkOut);
+  const totalRooms = Math.floor(Number(capacity));
+  if (!nights.length || !Number.isFinite(totalRooms) || totalRooms < 1 || totalRooms > 500)
+    return null;
+  const counts = nights.map((_, i) =>
+    Math.max(0, Math.min(totalRooms, Math.floor(Number(needed[i]) || 0))));
+  return {
+    id: hotelId(name), name: name.trim(), checkIn: formatTrackerDate(checkIn),
+    checkOut: formatTrackerDate(checkOut), checkoutTime: "", totalRooms,
+    roomsBooked: Math.max(0, ...counts), roomNos: Array(totalRooms).fill(""),
+    totalRoomNights: counts.reduce((a, b) => a + b, 0), nights, needed: counts,
+    grid: Array.from({ length: totalRooms }, () =>
+      nights.map(() => Array(SLOTS).fill(""))),
+    notes: [],
+  };
+}
+
+function renderNewHotelNights() {
+  const host = $("#newHotelNights");
+  if (!host) return;
+  const dates = hotelNightsFromDates($("#newHotelCheckIn")?.value || "",
+    $("#newHotelCheckOut")?.value || "");
+  if (!dates.length) {
+    host.innerHTML = '<p class="dim">Choose a check-in and later check-out date (up to 90 nights).</p>';
+    return;
+  }
+  const capacity = Math.max(1, Math.min(500, Math.floor(Number($("#newHotelCapacity")?.value) || 1)));
+  host.innerHTML = dates.map(date => {
+    const key = trackerDateToISO(date);
+    const count = Math.max(0, Math.min(capacity, Math.floor(Number(newHotelNightCounts[key]) || 0)));
+    newHotelNightCounts[key] = String(count);
+    return `<div class="hotel-night-count"><label>${esc(wd(date))} · pre-booked rooms
+      <input class="new-hotel-prebooked" type="number" min="0" max="${capacity}"
+        value="${count}" data-night="${key}" inputmode="numeric" aria-label="${esc(date)} pre-booked rooms"></label></div>`;
+  }).join("");
+}
+
+function addHotelFromForm(event) {
+  event.preventDefault();
+  const error = $("#hotelFormError");
+  const name = ($("#newHotelName")?.value || "").trim();
+  const checkIn = $("#newHotelCheckIn")?.value || "";
+  const checkOut = $("#newHotelCheckOut")?.value || "";
+  const capacity = Number($("#newHotelCapacity")?.value);
+  const nights = hotelNightsFromDates(checkIn, checkOut);
+  const invalidSheetChars = /[\\\/:*?\[\]]/.test(name);
+  const nameTaken = st.hotels.some(h => h.name.toLowerCase() === name.toLowerCase()
+    || h.id === hotelId(name));
+  const reservedSheetNames = ["vendors", ...Object.keys(st.vendorDetails || {})];
+  const reserved = reservedSheetNames.some(sheet => sheet.toLowerCase() === name.toLowerCase());
+  if (!name || name.length > 31 || invalidSheetChars) {
+    error.textContent = "Enter a hotel name up to 31 characters. Excel sheet names cannot contain \\ / ? * : [ or ].";
+    return;
+  }
+  if (nameTaken || reserved) {
+    error.textContent = "That name is already used by a hotel or workbook sheet.";
+    return;
+  }
+  if (!nights.length) {
+    error.textContent = "Choose a check-out date after check-in, with a stay of up to 90 nights.";
+    return;
+  }
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
+    error.textContent = "Enter the maximum number of rooms available (1–500).";
+    return;
+  }
+  const counts = nights.map(date => {
+    const count = Number(newHotelNightCounts[trackerDateToISO(date)] || 0);
+    return Math.max(0, Math.min(capacity,
+      Number.isFinite(count) ? Math.floor(count) : 0));
+  });
+  const hotel = makeHotel(name, checkIn, checkOut, capacity, counts);
+  if (!hotel) {
+    error.textContent = "The hotel details could not be created. Check the dates and room counts.";
+    return;
+  }
+  if (st.hotels.some(h => h.id === hotel.id)) {
+    error.textContent = "The hotel name creates a duplicate tracker ID. Use a more distinct name.";
+    return;
+  }
+  st.hotels.push(hotel);
+  mSel[hotel.id] = 0;
+  save();
+  recordChange(`Added hotel "${hotel.name}" with ${hotel.nights.length} night(s)`);
+  $("#hotelForm").reset();
+  $("#newHotelCapacity").value = "1";
+  Object.keys(newHotelNightCounts).forEach(key => delete newHotelNightCounts[key]);
+  renderNewHotelNights();
+  $("#addHotelPanel").open = false;
+  renderAll();
+  flash("Hotel added — enter guest names in its room list");
+}
+
 // Signature of every editable field — used to detect when the workbook has
 // absorbed a save (the API copy then matches the live state).
 function dataSig(d) {
   return JSON.stringify([
-    d.hotels.map(h => [h.id, h.grid, h.roomsBooked, h.roomNos]),
+    d.hotels.map(h => [h.id, h.name, h.checkIn, h.checkOut, h.nights,
+      h.totalRooms, h.needed, h.grid, h.roomsBooked, h.roomNos]),
     d.vendors.map(v => [v.row, v.name, v.contact, v.phone, v.whatsapp,
       v.event, v.eventDate, v.quoted, v.paid, v.paymentMode,
       v.ref, v.paidOn, v.address, v.notes, v.isNew]),
   ]);
 }
 
-// Excel is the source of truth. Once it has absorbed our changes, adopt its
-// export and drop the stale browser snapshot, so the next load starts from
-// Excel instead of replaying an old local state over fresh data.
+// The legacy Excel sync path adopts the export after its GitHub Action finishes.
 function adoptFresh(d) {
   base = normalize(d);
   st = JSON.parse(JSON.stringify(base));
@@ -183,21 +318,21 @@ function roomThird(h, ri) {                      // billable 3rd-guest nights in
   return h.grid[ri].filter(cell => cell[2]).length;
 }
 // Headline numbers for one hotel: guest-nights, extra 3rd-guest nights, and how
-// much of the booked block is actually occupied.
+// much of the reserved block has guest details entered.
 function hotelStats(h) {
   const guestNights = h.grid.reduce((a, row) =>
     a + row.reduce((x, cell) => x + cell.filter(Boolean).length, 0), 0);
   const thirdNights = h.grid.reduce((a, row) =>
     a + row.filter(cell => cell[2]).length, 0);
-  const needed = h.needed.reduce((a, b) => a + (b || 0), 0);
+  const prebookedRoomNights = h.needed.reduce((a, b) => a + (b || 0), 0);
   const filled = h.nights.reduce((a, _, i) => a + filledRooms(h, i), 0);
   const booked = h.roomsBooked ?? h.totalRooms;
-  return { guestNights, thirdNights, needed, filled, booked,
+  return { guestNights, thirdNights, prebookedRoomNights, filled, booked,
            thirdGuests: h.grid.reduce((a, row) =>
              a + row.reduce((x, cell) => x + (cell[2] ? 1 : 0), 0), 0) };
 }
-// A hotel is "booked" while its rooms are held, "filled" once the held rooms
-// actually have guests, and "current" reflects the first night's demand.
+// Hotel-wide reservation totals are distinct from rooms with guest details;
+// current reflects whether the first night's pre-booked rooms have details.
 function hotelStatus(h) {
   const s = hotelStats(h);
   const booked = h.roomsBooked ?? h.totalRooms;
@@ -211,10 +346,20 @@ function hotelStatus(h) {
   };
 }
 function nightStatus(h, ni) {
-  const f = filledRooms(h, ni), need = h.needed[ni] || 0;
-  if (f === need) return { f, need, cls: "ok",    txt: "OK" };
-  if (f <  need)  return { f, need, cls: "short", txt: `need ${need - f} more` };
-  return              { f, need, cls: "over",  txt: `${f - need} over` };
+  const f = filledRooms(h, ni), prebooked = h.needed[ni] || 0;
+  if (f === prebooked) return {
+    f, prebooked, cls: "ok",
+    txt: prebooked ? "All pre-booked rooms have guest details" : "No rooms pre-booked",
+  };
+  if (f < prebooked) return {
+    f, prebooked, cls: "short",
+    txt: `${prebooked - f} pre-booked room${prebooked - f === 1 ? "" : "s"} missing guest details`,
+  };
+  const extra = f - prebooked;
+  return {
+    f, prebooked, cls: "over",
+    txt: `${extra} room${extra === 1 ? "" : "s"} ${extra === 1 ? "has" : "have"} guest details beyond the pre-booked count`,
+  };
 }
 function vendorStatus(v) {
   if (v.quoted === "" || v.quoted == null) return { cls: "none", txt: "Not quoted" };
@@ -229,20 +374,24 @@ function vendorStatus(v) {
    a flush on the way out so nothing can be lost. */
 let saveT = 0, saveDirty = false;
 function flushSave() {
-  if (!saveT && !saveDirty) return;
+  if (!saveT && !saveDirty) return true;
   clearTimeout(saveT); saveT = 0; saveDirty = false;
   try {
     localStorage.setItem(KEY, JSON.stringify(st));
-    localStorage.setItem(PENDING_KEY, "1");   // not yet in Excel
+    localStorage.setItem(PENDING_KEY, "1");   // not yet in shared state
   } catch (e) {
     flash("Could not save (storage full?)");
-    return;
+    return false;
   }
-  flash("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  setSaveIndicator(true);
+  syncStatus("Unsaved Sync — saved only on this device. Tap Sync changes to share it; refreshing discards it.", "msg-warn");
+  return true;
 }
 function save() {
   saveDirty = true;
-  flash("Editing…");
+  setSaveIndicator(true);
+  flash("Unsaved Sync");
+  syncStatus("Unsaved Sync — this edit is only on this device until you tap Sync changes.", "msg-warn");
   clearTimeout(saveT);
   saveT = setTimeout(flushSave, 250);
 }
@@ -250,22 +399,72 @@ function save() {
 addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSave(); });
 addEventListener("pagehide", flushSave);
 let flashT;
+function setSaveIndicator(pending) {
+  const label = pending ? "Unsaved Sync · saved here" : "Data Synced";
+  for (const id of ["#saveState", "#saveStateBar"]) {
+    const el = $(id); if (!el) continue;
+    el.textContent = label;
+    el.dataset.pending = pending ? "1" : "0";
+  }
+  for (const id of ["#btnSync", "#btnSyncBar"]) {
+    const el = $(id); if (el) el.dataset.pending = pending ? "1" : "0";
+  }
+}
 function flash(msg) {
-  const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   for (const id of ["#saveState", "#saveStateBar"]) {
     const el = $(id); if (!el) continue;
     el.textContent = msg;
     clearTimeout(el._t);
-    el._t = setTimeout(() => el.textContent = "Auto-saved", 2500);
+    el._t = setTimeout(() => setSaveIndicator(localStorage.getItem(PENDING_KEY) === "1"), 2500);
   }
-  return t;
+}
+
+function setPending(pending) {
+  try {
+    if (pending) {
+      localStorage.setItem(KEY, JSON.stringify(st));
+      localStorage.setItem(PENDING_KEY, "1");
+    } else {
+      localStorage.removeItem(KEY);
+      localStorage.setItem(PENDING_KEY, "0");
+    }
+  } catch (e) {
+    flash("Could not update local save (storage full?)");
+    return false;
+  }
+  setSaveIndicator(pending);
+  return true;
+}
+
+function setSyncBusy(busy) {
+  const labels = [["#btnSync", "Sync changes"], ["#btnSyncBar", "Sync"]];
+  for (const [id, label] of labels) {
+    const el = $(id);
+    if (!el) continue;
+    el.disabled = busy;
+    el.textContent = busy ? "Syncing…" : label;
+  }
+}
+
+let syncToastTimer = 0;
+function reportRealtimeStatus(message, cls) {
+  syncStatus(message, cls);
+  const shouldShow = cls === "msg-error" || message.startsWith("Data Synced")
+    || message.startsWith("Sending changes") || message.startsWith("Sync cancelled")
+    || message.startsWith("Shared updates received");
+  const toast = $("#syncToast");
+  if (!toast || !shouldShow) return;
+  clearTimeout(syncToastTimer);
+  toast.textContent = message;
+  toast.className = `sync-toast ${cls || ""}`;
+  toast.hidden = false;
+  syncToastTimer = setTimeout(() => { toast.hidden = true; }, 7000);
 }
 
 /* ------------------------------------------------------------- the name gate
-   Two asks, in this order, and always before the password:
-     1. the first time someone finishes an edit on this device, and
-     2. immediately before a save to the cloud. */
+   Sync asks for the user's name first, then requests the password. */
 let nameAsked = false;
+let namePrompt = null;
 function currentName() {
   return (($("#yourName")?.value || $("#yourNameBar")?.value) || "").trim();
 }
@@ -277,23 +476,32 @@ function setName(v) {
     el.value = s;
     el.dataset.empty = s ? "0" : "1";     // drives the amber warning tint
   }
+  const changes = getChanges();
+  let attributed = false;
+  changes.forEach(change => {
+    if (change.who === "Pending") { change.who = s; attributed = true; }
+  });
+  if (attributed) {
+    localStorage.setItem(CHANGES_KEY, JSON.stringify(changes));
+    renderChanges();
+  }
   return s;
 }
 function nameMissing() { return !currentName(); }
 
-function ensureName(why, force) {
-  if (!nameMissing()) return Promise.resolve(true);
-  if (nameAsked && !force) return Promise.resolve(false);   // don't nag mid-edit
-  return new Promise(resolve => {
+function requestName(why) {
+  if (namePrompt) return namePrompt;
+  nameAsked = false;
+  namePrompt = new Promise(resolve => {
     const el = $("#nameLock"), input = $("#nameLockInput"), err = $("#nameLockErr");
     const whyEl = $("#nameLockWhy");
-    if (!el || !input) return resolve(false);
+    if (!el || !input) { namePrompt = null; return resolve(false); }
     if (whyEl && why) whyEl.textContent = why;
     el.hidden = false;
     input.value = currentName();
     err.textContent = "";
     input.focus();
-    const done = ok => { el.hidden = true; resolve(ok); };
+    const done = ok => { el.hidden = true; namePrompt = null; resolve(ok); };
     $("#nameLockForm").onsubmit = e => {
       e.preventDefault();
       const v = input.value.trim();
@@ -306,6 +514,13 @@ function ensureName(why, force) {
     };
     $("#nameLockCancel").onclick = () => done(false);
   });
+  return namePrompt;
+}
+
+function ensureName(why, force) {
+  if (!nameMissing()) return Promise.resolve(true);
+  if (nameAsked && !force) return Promise.resolve(false);   // don't nag mid-edit
+  return requestName(why);
 }
 
 /* --------------------------------------------------------------- change log */
@@ -314,7 +529,7 @@ function getChanges() {
   catch { return []; }
 }
 function recordChange(what) {
-  const who = currentName() || "Anonymous";
+  const who = currentName() || "Pending";
   const log = getChanges();
   log.push({ t: new Date().toISOString(), who, what });
   if (log.length > 300) log.splice(0, log.length - 300);
@@ -350,12 +565,13 @@ function renderAll() {
 
 function renderOverview() {
   const needTot = st.hotels.reduce((a, h) => a + h.needed.reduce((x, y) => x + (y || 0), 0), 0);
-  let fillTot = 0, shortNights = [];
+  let fillTot = 0, missingDetails = 0, extraDetails = 0;
   for (const h of st.hotels)
     h.nights.forEach((_, i) => {
       const s = nightStatus(h, i);
       fillTot += s.f;
-      if (s.cls === "short") shortNights.push(`${h.name} ${h.nights[i]}`);
+      missingDetails += Math.max(0, s.prebooked - s.f);
+      extraDetails += Math.max(0, s.f - s.prebooked);
     });
 
   let guestNights = 0, thirdGuests = 0, thirdNights = 0, roomsInUse = 0;
@@ -372,9 +588,13 @@ function renderOverview() {
   const pend = st.vendors.filter(v => vendorStatus(v).cls === "warn").length;
 
   $("#overviewCards").innerHTML = [
-    ["Room-nights needed", needTot, `${st.hotels.length} hotels`],
-    ["Room-nights assigned", fillTot, shortNights.length ? `${shortNights.length} night(s) short` : "all nights covered", shortNights.length ? "warn" : "ok"],
-    ["Guest-nights", guestNights, `${roomsInUse} room${roomsInUse === 1 ? "" : "s"} in use`],
+    ["Room-nights pre-booked", needTot, `${st.hotels.length} hotels`],
+    ["Room-nights with guest details", fillTot,
+      missingDetails ? `${missingDetails} pre-booked room-night${missingDetails === 1 ? "" : "s"} missing details` :
+        extraDetails ? `Review ${extraDetails} room-night${extraDetails === 1 ? "" : "s"} beyond the pre-booked count` :
+          "All pre-booked rooms have details",
+      missingDetails || extraDetails ? "warn" : "ok"],
+    ["Guest-nights", guestNights, `${roomsInUse} room${roomsInUse === 1 ? "" : "s"} with guest details`],
     ["Extra 3rd guests", thirdGuests, thirdNights ? `${thirdNights} billable guest-night${thirdNights === 1 ? "" : "s"}` : "none billable", thirdGuests ? "warn" : "ok"],
     ["Vendors", st.vendors.length, `${st.vendors.filter(v => v.quoted !== "" && v.quoted != null).length} quoted`],
     ["Vendors pending", pend, pend ? "money still due" : "nothing outstanding", pend ? "warn" : "ok"],
@@ -393,10 +613,10 @@ function renderOverview() {
   $("#nightBars").innerHTML = st.hotels.map(h => `
     <h3>${esc(h.name)}</h3>` + h.nights.map((n, i) => {
       const s = nightStatus(h, i);
-      const pct = s.need ? Math.min(100, (s.f / s.need) * 100) : 0;
+      const pct = s.prebooked ? Math.min(100, (s.f / s.prebooked) * 100) : 0;
       return `<div class="night">
         <div class="night-h"><span class="d">${esc(wd(n))}</span>
-          <span class="s ${s.cls}">${s.f} of ${s.need} rooms &middot; ${esc(s.txt)}</span></div>
+          <span class="s ${s.cls}">${s.f} of ${s.prebooked} pre-booked rooms have guest details &middot; ${esc(s.txt)}</span></div>
         <div class="track"><div class="fill ${s.cls}" style="width:${pct}%"></div></div>
       </div>`;
     }).join("")).join("");
@@ -406,16 +626,16 @@ function renderOverview() {
    repaint them without rebuilding the whole panel (which would eat the caret). */
 function statPills(h, hs) {
   return `
-          <span class="pill ${hs.booked.cls}" title="rooms held vs total rooms available">Booked ${esc(hs.booked.txt)}</span>
-          <span class="pill ${hs.fill.cls}" title="booked rooms that have at least one guest">Filled ${esc(hs.fill.txt)}</span>
-          <span class="pill ${hs.current.cls}" title="${esc(h.nights[0])}: ${esc(hs.current.f)} of ${esc(hs.current.need)} rooms">${esc(wd(h.nights[0]))} ${esc(hs.current.txt)}</span>`;
+          <span class="pill ${hs.booked.cls}" title="rooms reserved at this hotel vs total rooms available">Reserved ${esc(hs.booked.txt)}</span>
+          <span class="pill ${hs.fill.cls}" title="reserved rooms with at least one guest name">Guest details ${esc(hs.fill.txt)}</span>
+          <span class="pill ${hs.current.cls}" title="${esc(h.nights[0])}: ${esc(hs.current.f)} of ${esc(hs.current.prebooked)} pre-booked rooms have guest details">${esc(wd(h.nights[0]))} ${esc(hs.current.txt)}</span>`;
 }
 
 function sumCards(h, hs) {
   const booked = h.roomsBooked ?? h.totalRooms;
   return `
-        <div class="sumcard"><div class="k">Guest-nights</div><div class="v">${hs.guestNights}</div><div class="n">${hs.filled} room-night${hs.filled === 1 ? "" : "s"} filled of ${hs.needed} needed</div></div>
-        <div class="sumcard"><div class="k">Rooms in use</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} booked</div></div>
+        <div class="sumcard"><div class="k">Guest-nights</div><div class="v">${hs.guestNights}</div><div class="n">${hs.filled} pre-booked room-night${hs.filled === 1 ? "" : "s"} with guest details of ${hs.prebookedRoomNights}</div></div>
+        <div class="sumcard"><div class="k">Rooms with Guest</div><div class="v">${hs.roomsInUse}</div><div class="n">of ${booked} rooms available at this hotel</div></div>
         <div class="sumcard${hs.thirdGuests ? " extra" : ""}"><div class="k">Extra 3rd guests</div><div class="v">${hs.thirdGuests}</div><div class="n">${hs.thirdNights} billable guest-night${hs.thirdNights === 1 ? "" : "s"}</div></div>`;
 }
 
@@ -469,10 +689,9 @@ function renderRoomsDesktop() {
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
             <span>Check-out <b>${esc(h.checkOut)}</b>${h.checkoutTime ? " at " + esc(h.checkoutTime) : ""}</span>
-            <span class="bookedwrap">Rooms booked
-              <input class="booked" type="number" inputmode="numeric" min="0" max="${h.totalRooms}"
-                     value="${booked}" data-h="${h.id}" data-k="booked"
-                     aria-label="Rooms booked at ${esc(h.name)}">
+            <span class="bookedwrap">Maximum pre-booked rooms
+              <input class="booked" type="number" value="${booked}" data-h="${h.id}"
+                     aria-label="Maximum pre-booked rooms at ${esc(h.name)}" disabled>
               of <b>${h.totalRooms}</b></span>
           </div>
         </div>
@@ -483,8 +702,13 @@ function renderRoomsDesktop() {
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("Filled", i => filledRooms(h, i))}
-            ${totalRow("Needed", i => h.needed[i])}
+            ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
+            <tr class="total" data-row="Pre-Booked Rooms">
+              <td class="sticky-col">Pre-Booked Rooms</td>
+              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
+                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
+                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
+            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -521,8 +745,9 @@ function mobileChips(h) {
     const no = h.roomNos[ri] || "";
     return `<button type="button" class="roomchip${ri >= booked ? " unbooked" : ""}${
         row.some(c => c[2]) ? " has-third" : ""}" data-h="${h.id}" data-r="${ri}"
-        aria-pressed="${ri === sel}">
-        ${no ? esc(no) : ri + 1}<small>Room ${ri + 1}</small></button>`;
+        aria-pressed="${ri === sel}" aria-label="Edit Room ${ri + 1}${
+          no ? `, hotel room ${esc(no)}` : ", hotel room number not entered"}">
+        ${no ? esc(no) : ri + 1}<small>${ri === sel ? "Selected · " : ""}Room ${ri + 1}</small></button>`;
   }).join("");
 }
 function renderRoomsMobile() {
@@ -533,7 +758,8 @@ function renderRoomsMobile() {
     const ri = mRoom(h);
     const cols = h.nights.map(n => `<th>${esc(wd(n))}</th>`).join("");
 
-    const rows = h.grid.map((row, ri) => {
+    const row = h.grid[ri];
+    const rows = [row].filter(Boolean).map((row) => {
       const bookedCls = ri >= booked ? " unbooked" : "";
       const filledCls = row.some(c => c.some(Boolean)) ? " filled" : "";
       const no = h.roomNos[ri] || "";
@@ -566,10 +792,9 @@ function renderRoomsMobile() {
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
             <span>Check-out <b>${esc(h.checkOut)}</b>${h.checkoutTime ? " at " + esc(h.checkoutTime) : ""}</span>
-            <span class="bookedwrap">Rooms booked
-              <input class="booked" type="number" inputmode="numeric" min="0" max="${h.totalRooms}"
-                     value="${booked}" data-h="${h.id}" data-k="booked"
-                     aria-label="Rooms booked at ${esc(h.name)}">
+            <span class="bookedwrap">Maximum pre-booked rooms
+              <input class="booked" type="number" value="${booked}" data-h="${h.id}"
+                     aria-label="Maximum pre-booked rooms at ${esc(h.name)}" disabled>
               of <b>${h.totalRooms}</b></span>
           </div>
         </div>
@@ -577,12 +802,26 @@ function renderRoomsMobile() {
       </div>
       <div class="sumcards">${sumCards(h, hs)}</div>
       <div class="roomchips" role="group" aria-label="Choose a room at ${esc(h.name)}">${mobileChips(h)}</div>
+      <p class="room-picker-hint">Tap a room above to switch the guest fields and hotel room number shown below.</p>
+      <div class="mroom-number">
+        <label for="roomno-${esc(h.id)}-${ri + 1}">Actual hotel room number · Room ${ri + 1}</label>
+        <input class="roomno" id="roomno-${esc(h.id)}-${ri + 1}" type="text" inputmode="numeric"
+               value="${esc(h.roomNos[ri] || "")}" placeholder="Enter the room number"
+               data-h="${h.id}" data-k="roomNo" data-r="${ri}"
+               aria-label="Actual hotel room number for Room ${ri + 1} at ${esc(h.name)}">
+      </div>
       <div class="table-scroll">
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
-            ${totalRow("Filled", i => filledRooms(h, i))}
-            ${totalRow("Needed", i => h.needed[i])}
+            ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
+            <tr class="total" data-row="Pre-Booked Rooms">
+              <td class="sticky-col">Pre-Booked Rooms</td>
+              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
+                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
+                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
+              <td class="num"></td>
+            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -632,16 +871,16 @@ function renderVendors() {
      <tbody>${st.vendors.map((v, i) => {
        const s = vendorStatus(v);
        return `<tr>
-         <td class="sticky-col g-id"><input class="cell strong" type="text" value="${esc(v.name)}"
+         <td class="sticky-col g-id" data-label="Vendor"><input class="cell strong" type="text" value="${esc(v.name)}"
              data-v="${i}" data-f="name" aria-label="Vendor name"></td>
-         ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}">
+         ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}" data-label="${l}">
             <input class="cell" type="${t === "number" ? "number" : "text"}"
                    ${t === "number" ? 'min="0" step="500"' : ""}
                    value="${esc(v[k])}" data-v="${i}" data-f="${k}"
                    aria-label="${l} for vendor ${i + 1}"></td>`).join("")}
-         <td class="num vstat"><span class="pill ${s.cls}">${s.txt}</span>
+         <td class="num vstat" data-label="Payment status"><span class="pill ${s.cls}">${s.txt}</span>
              ${s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : ""}</td>
-         <td class="num"><button class="btn row-del" data-del="${i}"
+         <td class="num vendor-remove"><button class="btn row-del" data-del="${i}"
              title="Remove this vendor" aria-label="Remove vendor ${i + 1}">&times;</button></td>
        </tr>`;
      }).join("")}</tbody>`;
@@ -723,14 +962,20 @@ function addVendor() {
 // last value seen per editable cell, so the change log shows old -> new
 const lastVal = new Map();
 function cellKey(t) {
-  // hotel metadata inputs (room no / rooms booked) are keyed by kind, not cell
-  if (t.dataset.k) return `${t.dataset.h}-${t.dataset.k}-${t.dataset.r ?? ""}`;
+  // hotel metadata inputs are keyed by kind, not guest-grid cell coordinates
+  if (t.dataset.k) return `${t.dataset.h}-${t.dataset.k}-${t.dataset.r ?? ""}-${t.dataset.n ?? ""}`;
+  if (t.matches(".prebooked-count"))
+    return `${t.dataset.h}-prebooked-${t.dataset.n}`;
   return t.dataset.h ? `${t.dataset.h}-${t.dataset.r}-${t.dataset.n}-${t.dataset.g}` : `v-${t.dataset.v}-${t.dataset.f}`;
 }
 function baseVal(t) {
   if (t.dataset.k) {
     const h = base.hotels.find(x => x.id === t.dataset.h);
     return t.dataset.k === "booked" ? (h?.roomsBooked ?? "") : (h?.roomNos?.[+t.dataset.r] ?? "");
+  }
+  if (t.matches(".prebooked-count")) {
+    const h = base.hotels.find(x => x.id === t.dataset.h);
+    return h?.needed?.[+t.dataset.n] ?? "";
   }
   if (t.dataset.h) {
     const h = base.hotels.find(x => x.id === t.dataset.h);
@@ -739,6 +984,10 @@ function baseVal(t) {
   return base.vendors?.[+t.dataset.v]?.[t.dataset.f] ?? "";
 }
 function describeCell(t) {
+  if (t.matches(".prebooked-count")) {
+    const h = st.hotels.find(x => x.id === t.dataset.h);
+    return `Pre-booked rooms for ${h.nights[+t.dataset.n]} at ${h.name}`;
+  }
   if (t.dataset.k) {
     const h = st.hotels.find(x => x.id === t.dataset.h);
     return t.dataset.k === "booked"
@@ -766,18 +1015,24 @@ function recordEdit(t) {
 function refreshRows(hid) {
   const h = st.hotels.find(x => x.id === hid);
   if (!h) return;
-  // scope by panel: the first [data-h] match is the Rooms-booked input, which
-  // sits outside the grid table, so .closest("table") from it finds nothing.
+  // Scope by hotel panel so edits never rebuild the table and lose the caret.
   const panel = $(`#hotelPanels [data-h="${hid}"]`)?.closest(".panel");
   const body = panel?.querySelector("table.grid tbody");
   if (!body) return;
   const rowFor = label => body.querySelector(`tr.total[data-row="${label}"]`);
   const paint = (label, fn) => rowFor(label)?.querySelectorAll("td.num")
     .forEach((td, i) => { td.textContent = fn(i); });
-  paint("Filled",  i => filledRooms(h, i));
-  paint("Needed",  i => h.needed[i]);
+  paint("Rooms with Guest", i => filledRooms(h, i));
   paint("Guests",  i => nightGuests(h, i));
   paint("3rd guests", i => nightThird(h, i));
+  rowFor("Pre-Booked Rooms")?.querySelectorAll(".prebooked-count")
+    .forEach((input, i) => { input.value = h.needed[i]; });
+  panel?.querySelectorAll(".booked").forEach(el => {
+    el.value = h.roomsBooked;
+  });
+  const hs = hotelStatus(h);
+  panel?.querySelectorAll(".statpills").forEach(el => { el.innerHTML = statPills(h, hs); });
+  panel?.querySelectorAll(".sumcards").forEach(el => { el.innerHTML = sumCards(h, hs); });
   rowFor("status")?.querySelectorAll("td.num").forEach((td, i) => {
     const s = nightStatus(h, i);
     td.innerHTML = `<span class="pill ${s.cls}">${esc(s.txt)}</span>`;
@@ -800,6 +1055,23 @@ function refreshMobile(hid) {
   const panel = $(`#hotelMobile [data-h="${hid}"]`)?.closest(".panel");
   if (!panel) return;
   paintPanelTotals(panel, h);
+  panel.querySelectorAll(".booked").forEach(el => {
+    el.value = h.roomsBooked;
+  });
+  const body = panel.querySelector("table.grid tbody");
+  const rowFor = label => body?.querySelector(`tr.total[data-row="${label}"]`);
+  const paint = (label, fn) => rowFor(label)?.querySelectorAll("td.num")
+    .forEach((td, i) => { if (i < h.nights.length) td.textContent = fn(i); });
+  paint("Rooms with Guest", i => filledRooms(h, i));
+  paint("Guests", i => nightGuests(h, i));
+  paint("3rd guests", i => nightThird(h, i));
+  rowFor("Pre-Booked Rooms")?.querySelectorAll(".prebooked-count")
+    .forEach((input, i) => { input.value = h.needed[i]; });
+  rowFor("status")?.querySelectorAll("td.num").forEach((td, i) => {
+    if (i >= h.nights.length) return;
+    const status = nightStatus(h, i);
+    td.innerHTML = `<span class="pill ${status.cls}">${esc(status.txt)}</span>`;
+  });
   const chips = panel.querySelector(".roomchips");
   if (chips) chips.innerHTML = mobileChips(h);
   const sheet = panel.querySelector(".msheet");
@@ -809,7 +1081,7 @@ function refreshMobile(hid) {
     const ni = +el.dataset.n;
     const s = nightStatus(h, ni);
     const sp = el.querySelector(".s");
-    if (sp) { sp.className = "s " + s.cls; sp.textContent = `${s.f} of ${s.need} rooms · ${s.txt}`; }
+    if (sp) { sp.className = "s " + s.cls; sp.textContent = `${s.f} of ${s.prebooked} pre-booked rooms have guest details · ${s.txt}`; }
     el.querySelectorAll(".mg.slot3").forEach(g =>
       g.classList.toggle("on", !!(h.grid[ri][ni][2])));
   });
@@ -849,6 +1121,19 @@ function onEditInput(t) {
     h.roomNos[+t.dataset.r] = t.value;
     save(); refreshRows(t.dataset.h); refreshMobile(t.dataset.h);
   }
+  if (t.matches(".prebooked-count")) {
+    const h = st.hotels.find(x => x.id === t.dataset.h);
+    if (!h) return;
+    const ni = +t.dataset.n;
+    const raw = t.value === "" ? 0 : Number(t.value);
+    const count = Number.isFinite(raw)
+      ? Math.max(0, Math.min(h.totalRooms, Math.floor(raw))) : h.needed[ni];
+    h.needed[ni] = count;
+    h.roomsBooked = Math.max(0, ...h.needed);
+    h.totalRoomNights = h.needed.reduce((sum, value) => sum + value, 0);
+    t.value = String(count);
+    save(); renderOverview(); refreshRows(t.dataset.h); refreshMobile(t.dataset.h);
+  }
   if (t.matches(".booked")) {
     const h = st.hotels.find(x => x.id === t.dataset.h);
     const n = t.value === "" ? 0 : Number(t.value);
@@ -866,17 +1151,32 @@ function onEditInput(t) {
 }
 
 function wire() {
-  document.addEventListener("input", e => onEditInput(e.target));
+  document.addEventListener("input", e => {
+    const t = e.target;
+    if (t.matches(".new-hotel-prebooked")) {
+      newHotelNightCounts[t.dataset.night] = t.value;
+      return;
+    }
+    onEditInput(t);
+  });
 
-  // A finished edit: record it, and if we still do not know who this is, ask.
+  // Record edits locally without prompting; Sync asks for identity before upload.
   document.addEventListener("change", e => {
     const t = e.target;
-    if (!(t.matches(GNAME) || t.matches(".roomno") || t.matches(".booked") || t.matches("input.cell")))
+    if (!(t.matches(GNAME) || t.matches(".roomno") || t.matches(".prebooked-count") || t.matches("input.cell")))
       return;
     recordEdit(t);
-    if (nameMissing()) ensureName(
-      "Every change is recorded with the name of the person who made it, so the " +
-      "couple can always ask you about it. It stays on this device.");
+  });
+
+  $("#hotelForm")?.addEventListener("submit", addHotelFromForm);
+  for (const id of ["#newHotelCheckIn", "#newHotelCheckOut", "#newHotelCapacity"])
+    $(id)?.addEventListener("input", renderNewHotelNights);
+  $("#cancelAddHotel")?.addEventListener("click", () => {
+    $("#hotelForm").reset();
+    $("#newHotelCapacity").value = "1";
+    Object.keys(newHotelNightCounts).forEach(key => delete newHotelNightCounts[key]);
+    renderNewHotelNights();
+    $("#addHotelPanel").open = false;
   });
 
   // remember the person's name on this device (both copies of the input)
@@ -939,48 +1239,50 @@ function wire() {
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
-  $("#btnPrint").onclick = () => window.print();
+  $$(".btn-print").forEach(button => { button.onclick = () => {
+    button.closest(".mobile-tools")?.removeAttribute("open");
+    window.print();
+  }; });
 
-  $("#btnSync").onclick = syncNow;
-  const bar = $("#btnSyncBar"); if (bar) bar.onclick = syncNow;
+  $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();
+  const bar = $("#btnSyncBar");
+  if (bar) bar.onclick = () => window.RealtimeSync?.syncNow();
 
-  $("#btnReset").onclick = () => {
-    if (!confirm("Discard your edits on this device and reload the last Excel export?")) return;
-    flushSave();
+  $$(".btn-reset").forEach(button => { button.onclick = () => {
+    button.closest(".mobile-tools")?.removeAttribute("open");
+    if (!confirm("Discard your edits on this device and reload the latest shared data?")) return;
+    clearTimeout(saveT); saveT = 0; saveDirty = false;
     localStorage.removeItem(KEY); localStorage.setItem(PENDING_KEY, "0");
+    setSaveIndicator(false);
     st = JSON.parse(JSON.stringify(base));
     renderAll(); flash("Reset");
-    recordChange("Reset — discarded local edits and reloaded the last Excel export");
-  };
+    recordChange("Reset — discarded local edits and reloaded shared data");
+  }; });
 }
 
 /* --------------------------------------------------------------------- boot */
 (async function () {
+  // Refresh always starts from shared data; unsynced drafts are intentionally
+  // discarded rather than restored over changes made on another device.
+  discardLocalDraft();
   base = normalize(await loadData());
-  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-  // "1" = edits not yet pushed to Excel. null = a browser that predates the
-  // marker, whose snapshot we keep rather than silently dropping.
-  const pending = localStorage.getItem(PENDING_KEY);
-  if (saved && pending !== "0") {
-    st = normalize(saved);
-    // Always carry the latest reference details (invoices/hotel breakdowns)
-    // from the export, even when an older snapshot predates them.
-    st.vendorDetails = base.vendorDetails;
-  } else {
-    // Nothing outstanding: Excel is the source of truth, so drop the snapshot.
-    st = JSON.parse(JSON.stringify(base));
-    localStorage.removeItem(KEY);
-    localStorage.setItem(PENDING_KEY, "0");
-  }
-  // A snapshot taken before this feature has fewer room rows than the export;
-  // keep whatever the person typed rather than padding it away.
-  for (const b of base.hotels) {
-    const s = st.hotels.find(x => x.id === b.id);
-    if (s) s.grid = s.grid.slice(0, Math.max(b.grid.length, s.grid.length));
-  }
+  st = JSON.parse(JSON.stringify(base));
   $("#eventName").textContent = (base.event || "").replace(/^Wedding\s*[-–]\s*/i, "") || base.event;
   $("#genDate").textContent = base.generated;
   setName(localStorage.getItem(NAME_KEY) || "");
   renderAll(); wire();
-  const s0 = $("#saveState"); if (s0) s0.textContent = "Auto-saved";
+  setSaveIndicator(localStorage.getItem(PENDING_KEY) === "1");
+  window.RealtimeSync?.start({
+    getState: () => st,
+    normalize,
+    setState: value => { st = normalize(value); },
+    setBase: value => { base = normalize(value); },
+    getName: currentName,
+    promptName: requestName,
+    flushLocal: flushSave,
+    setPending,
+    setSyncBusy,
+    render: renderAll,
+    status: reportRealtimeStatus,
+  });
 })();

@@ -1,0 +1,4 @@
+project_id = "txojxwsyjemzombhiumt"
+
+[functions.tracker-write]
+verify_jwt = false

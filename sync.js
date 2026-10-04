@@ -73,14 +73,26 @@ function buildSyncPayload(opts = {}) {
     // touched contributes nothing at all.
     const bookedNow = h.roomsBooked ?? h.totalRooms;
     const nosNow = (h.roomNos || []).map(trim1);
+    const neededNow = (h.needed || []).map(value => Number(value) || 0);
     const bookedWas = bh ? (bh.roomsBooked ?? bh.totalRooms) : null;
     const nosWas = (bh?.roomNos || []).map(trim1);
+    const neededWas = (bh?.needed || []).map(value => Number(value) || 0);
     const changed = full
+      || !bh
       || bookedNow !== bookedWas
+      || h.totalRooms !== bh?.totalRooms
+      || h.checkIn !== bh?.checkIn
+      || h.checkOut !== bh?.checkOut
+      || JSON.stringify(h.nights) !== JSON.stringify(bh?.nights)
+      || JSON.stringify(neededNow) !== JSON.stringify(neededWas)
       || nosNow.length !== nosWas.length
       || nosNow.some((v, i) => v !== nosWas[i]);
     if (changed) {
-      rooms.push({ hotel: h.name, roomsBooked: bookedNow, roomNos: nosNow });
+      rooms.push({
+        hotel: h.name, id: h.id, roomsBooked: bookedNow, roomNos: nosNow,
+        totalRooms: h.totalRooms, checkIn: h.checkIn, checkOut: h.checkOut,
+        checkoutTime: h.checkoutTime, nights: h.nights, needed: neededNow,
+      });
     }
   }
 

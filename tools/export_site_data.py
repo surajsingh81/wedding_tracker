@@ -25,9 +25,6 @@ if "--workbook" in argv:
 if "--out" in argv:
     OUT = Path(argv[argv.index("--out") + 1])
 
-NIGHT_COLS = ["C", "D", "E", "F", "G", "H"]
-
-
 def clean(v):
     """Excel sometimes stores bidi marks (U+200E/200F) in typed text - strip them."""
     if v is None:
@@ -46,6 +43,12 @@ def find_row(sheet, label, col="A"):
 
 def num(v):
     return v if isinstance(v, (int, float)) else ""
+
+
+def hotel_id(name):
+    ascii_name = unicodedata.normalize("NFKD", str(name))
+    ascii_name = "".join(ch for ch in ascii_name if not unicodedata.category(ch).startswith("M"))
+    return re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-") or "hotel"
 
 
 # Prose notes only. Short labels must match EXACTLY -- a startswith test would
@@ -81,8 +84,7 @@ report = []
 
 # =============================================================== hotel sheets
 hotels = []
-for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
-    s = wb[sheet_name]
+for s in wb.worksheets:
 
     r_in = find_row(s, "Check-in")
     r_out = find_row(s, "Check-out")
@@ -90,8 +92,10 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
     r_rooms = find_row(s, "Total rooms")
     r_nights = find_row(s, "Total room-nights")
 
-    rooms = int(s[f"B{r_rooms}"].value)
     HDR = find_row(s, "Room")
+    if not r_rooms or not HDR:
+        continue
+    rooms = int(s[f"B{r_rooms}"].value)
 
     # "Rooms booked" = how many rooms are actually held, as opposed to "Total
     # rooms" (the inventory). Workbooks from before the migration lack the row.
@@ -99,8 +103,12 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
     booked = int(s[f"B{r_booked}"].value) if r_booked else rooms
 
     # night columns = header cells C..H that are not the trailing "Notes"
-    ncols = [c for c in NIGHT_COLS
-             if clean(s[f"{c}{HDR}"].value) and clean(s[f"{c}{HDR}"].value) != "Notes"]
+    ncols = []
+    for col in range(3, s.max_column + 1):
+        value = clean(s.cell(HDR, col).value)
+        if not value or value.casefold() == "notes":
+            break
+        ncols.append(s.cell(HDR, col).column_letter)
     nights = [clean(s[f"{c}{HDR}"].value) for c in ncols]
 
     g1a = HDR + 1
@@ -134,8 +142,8 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
              if is_note(t)]
 
     hotels.append({
-        "id": hid,
-        "name": clean(s["A1"].value).split("—")[0].strip(),
+        "id": hotel_id(s.title),
+        "name": s.title,
         "checkIn": clean(s[f"B{r_in}"].value),
         "checkOut": clean(s[f"B{r_out}"].value),
         "checkoutTime": clean(s[f"B{r_time}"].value) if r_time else "",
@@ -148,7 +156,7 @@ for sheet_name, hid in (("Nirmal", "nirmal"), ("Amarai", "amarai")):
         "grid": grid,
         "notes": notes,
     })
-    report.append(f"{sheet_name}: rooms={rooms} booked={booked} nights={len(nights)} "
+    report.append(f"{s.title}: rooms={rooms} booked={booked} nights={len(nights)} "
                   f"hdr r{HDR} guest blocks r{g1a}/r{g2a}"
                   + (f"/r{g3a}" if has3 else " (no 3rd-guest block)") + f" FILLED r{F}")
 

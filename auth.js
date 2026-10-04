@@ -1,10 +1,8 @@
 /* ============================================================================
-   auth.js — password for EDITING only (Send to Excel). Viewing is open.
+   auth.js — editor password prompts for the live database and legacy relay. Viewing is open.
    ----------------------------------------------------------------------------
-   IMPORTANT: this is NOT real security. GitHub Pages is a static host, so the
-   page, the data and this check all download to the visitor's browser. Anyone
-   who knows how can bypass it or fetch data.json directly. It only stops
-   casual visitors from pushing changes to the spreadsheet.
+   Live database writes are authorized by the Supabase Edge Function. The hash
+   below is retained only for the legacy Excel relay.
 
    To change the password:
      1. pick a new one, e.g.  echo -n "newpass" | shasum -a 256
@@ -24,6 +22,31 @@ async function sha256hex(str) {
 const AuthGate = {
   async checkPassword(pw) {
     return (await sha256hex(pw)) === AUTH.hash;
+  },
+  requestRealtimePassword(message) {
+    return new Promise(resolve => {
+      const el = $("#saveLock");
+      const input = $("#saveLockPass");
+      const err = $("#saveLockErr");
+      if (!el || !input) return resolve(null);
+      el.hidden = false;
+      input.value = "";
+      err.textContent = message || "";
+      input.focus();
+      $("#saveLockForm").onsubmit = e => {
+        e.preventDefault();
+        if (!input.value) {
+          err.textContent = "Enter the live-edit password.";
+          input.focus();
+          return;
+        }
+        const password = input.value;
+        input.value = "";
+        el.hidden = true;
+        resolve(password);
+      };
+      $("#saveLockCancel").onclick = () => { el.hidden = true; resolve(null); };
+    });
   },
   // Ask for the password before a save action (Send to Excel).
   confirmSave() {

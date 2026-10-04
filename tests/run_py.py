@@ -16,7 +16,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 TMP = Path("/tmp/wt/pytest")
-DEFAULT = ["test_py_unit", "test_py_integration", "test_py_e2e"]
+DEFAULT = ["test_py_unit", "test_py_integration", "test_py_dynamic_hotels", "test_py_e2e"]
 COUNTS = re.compile(r"SUITE_RESULT: PASS (\d+) / FAIL (\d+) / TOTAL (\d+)")
 
 
