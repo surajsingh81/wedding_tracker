@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=30">
+<link rel="stylesheet" href="styles.css?v=31">
 </head>
 <body>
 
@@ -231,8 +231,15 @@
 
   <!-- ============================================================= CHANGES -->
   <section id="view-changes" class="view" hidden>
-    <p class="hint">Shared activity appears here for every viewer. Local edits are marked
-      Pending until the editor syncs them.</p>
+    <div class="section-heading">
+      <div><p class="eyebrow">Team activity</p><h2>Changes</h2>
+        <p class="hint">See who changed what and when. Shared updates are visible to every planner.</p></div>
+    </div>
+    <div class="change-filters">
+      <label>Person <select id="changePerson"><option value="">Everyone</option></select></label>
+      <label>Type <select id="changeType"><option value="">All changes</option><option value="invoice">Invoices</option><option value="vendor">Vendors</option><option value="room">Rooms & guests</option><option value="hotel">Hotels</option><option value="sync">Syncs</option></select></label>
+      <label>Search <input id="changeSearch" type="search" placeholder="Search activity"></label>
+    </div>
     <div id="changesList"></div>
   </section>
 
@@ -250,7 +257,8 @@
   </div>
 </footer>
 
-<script src="app.js?v=30"></script>
-<script src="realtime.js?v=30"></script>
+<script src="sync.js?v=31"></script>
+<script src="app.js?v=31"></script>
+<script src="realtime.js?v=31"></script>
 </body>
 </html>

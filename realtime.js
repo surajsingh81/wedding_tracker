@@ -175,7 +175,8 @@
             change: {
               t: new Date().toISOString(),
               who: app.getName() || "Anonymous",
-              what: "Updated the shared wedding tracker",
+              what: (app.getChanges?.() || []).filter(c => c.who === app.getName()).slice(-5)
+                .map(c => c.what).join(" · ") || "Updated the shared wedding tracker",
               id: `change-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             },
           }, password)

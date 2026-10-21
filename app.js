@@ -544,18 +544,30 @@ function renderChanges() {
   const log = [...shared, ...local].sort((a, b) => String(b.t).localeCompare(String(a.t)));
   const el = $("#changesList");
   if (!el) return;
-  if (!log.length) {
-    el.innerHTML = `<p class="dim">No changes recorded on this device yet. Edit a guest name
-      or a vendor field, then check back here.</p>`;
+  const people = [...new Set(log.map(c => c.who).filter(Boolean))].sort();
+  const person = $("#changePerson")?.value || "";
+  const type = $("#changeType")?.value || "";
+  const search = ($("#changeSearch")?.value || "").trim().toLowerCase();
+  const filtered = log.filter(c => {
+    const text = `${c.what || ""} ${c.who || ""}`.toLowerCase();
+    const matchesType = !type || text.includes(type);
+    return (!person || c.who === person) && matchesType && (!search || text.includes(search));
+  });
+  const personSelect = $("#changePerson");
+  if (personSelect) {
+    const current = personSelect.value;
+    personSelect.innerHTML = `<option value="">Everyone</option>${people.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("")}`;
+    personSelect.value = people.includes(current) ? current : "";
+  }
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><h3>${log.length ? "No matching activity" : "No activity yet"}</h3><p>Synced changes will appear here with the editor name and details.</p></div>`;
     return;
   }
-  el.innerHTML = `<div class="table-scroll"><table class="grid">
-    <thead><tr><th>When</th><th>Who</th><th>What changed</th></tr></thead>
-    <tbody>${log.map(c => `
-      <tr><td class="num nowrap">${esc(new Date(c.t).toLocaleString([], {
-        day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</td>
-        <td><b>${esc(c.who)}</b></td><td>${esc(c.what)}</td></tr>`).join("")}
-    </tbody></table></div>`;
+  el.innerHTML = `<div class="activity-list">${filtered.map(c => `
+    <article class="activity-item"><div class="activity-avatar">${esc((c.who || "?").slice(0, 1).toUpperCase())}</div>
+      <div class="activity-body"><strong>${esc(c.who || "Unknown editor")}</strong><p>${esc(c.what || "Updated the tracker")}</p>
+        <time>${esc(new Date(c.t).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }))}</time></div>
+      <span class="activity-badge">${c.shared ? "Shared" : "Pending"}</span></article>`).join("")}</div>`;
 }
 
 /* -------------------------------------------------------------------- render */
@@ -643,7 +655,7 @@ function sumCards(h, hs) {
 /* -------------------------------------------------------------- desktop grid */
 function renderRooms() {
   renderRoomsDesktop();
-  renderRoomsMobile();
+  renderRoomsMobilePlanner();
 }
 
 function renderRoomsDesktop() {
@@ -834,6 +846,42 @@ function renderRoomsMobile() {
       </div>
       <ul class="notes">${h.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>
     </div>`;
+  }).join("");
+}
+
+function renderRoomsMobilePlanner() {
+  const host = $("#hotelMobile"); if (!host) return;
+  host.innerHTML = st.hotels.map(h => {
+    const hs = hotelStatus(h), ri = mRoom(h), row = h.grid[ri], no = h.roomNos[ri] || "";
+    const guestCount = row.reduce((sum, cell) => sum + cell.filter(Boolean).length, 0);
+    const nights = h.nights.map((night, ni) => {
+      const cell = row[ni];
+      return `<section class="guest-night-card">
+        <div class="guest-night-head"><div><strong>${esc(wd(night))}</strong><small>${esc(night)}</small></div>
+          <span class="pill ${nightStatus(h, ni).cls}">${nightStatus(h, ni).f}/${nightStatus(h, ni).prebooked} rooms</span></div>
+        <div class="guest-fields">${Array.from({ length: SLOTS }, (_, g) => `
+          <label class="guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3 · extra" : `Guest ${g + 1}`}</span>
+            <input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter name"
+              data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off"
+              aria-label="${esc(no || `Room ${ri + 1}`)} ${night} guest ${g + 1}"></label>`).join("")}</div>
+      </section>`;
+    }).join("");
+    return `<article class="mobile-hotel-card panel" data-h="${h.id}">
+      <div class="mobile-hotel-title"><div><p class="eyebrow">Hotel stay</p><h3>${esc(h.name)}</h3>
+        <small>${esc(h.checkIn)} → ${esc(h.checkOut)}</small></div><div class="statpills">${statPills(h, hs)}</div></div>
+      <div class="sumcards">${sumCards(h, hs)}</div>
+      <div class="room-list-label"><strong>Choose a room</strong><span>${h.grid.length} rooms · ${guestCount} names in this room</span></div>
+      <div class="roomchips">${mobileChips(h)}</div>
+      <div class="msheet" data-h="${h.id}">
+        <div class="room-editor-head"><div><span class="eyebrow">Editing room ${ri + 1}</span>
+          <h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3></div>
+          <label>Hotel room no.<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204"
+            data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number"></label></div>
+        <div class="room-editor-nav"><button class="btn small" type="button" data-h="${h.id}" data-nav="prev" ${ri === 0 ? "disabled" : ""}>← Previous</button>
+          <span>Room ${ri + 1} of ${h.grid.length}</span><button class="btn small" type="button" data-h="${h.id}" data-nav="next" ${ri === h.grid.length - 1 ? "disabled" : ""}>Next →</button></div>
+        <div class="guest-night-list">${nights}</div>
+      </div>
+    </article>`;
   }).join("");
 }
 
@@ -1146,6 +1194,10 @@ function refreshMobile(hid) {
   if (!h) return;
   const panel = $(`#hotelMobile [data-h="${hid}"]`)?.closest(".panel");
   if (!panel) return;
+  if (!panel.querySelector("table")) {
+    renderRoomsMobilePlanner();
+    return;
+  }
   paintPanelTotals(panel, h);
   panel.querySelectorAll(".booked").forEach(el => {
     el.value = h.roomsBooked;
@@ -1286,7 +1338,7 @@ function wire() {
     const chip = e.target.closest(".roomchip");
     if (chip) {
       mSel[chip.dataset.h] = +chip.dataset.r;
-      renderRoomsMobile();
+      renderRoomsMobilePlanner();
       return;
     }
     const nav = e.target.closest("[data-nav]");
@@ -1295,7 +1347,7 @@ function wire() {
       if (!h) return;
       const dir = nav.dataset.nav === "next" ? 1 : -1;
       mSel[h.id] = Math.min(Math.max(0, mRoom(h) + dir), h.grid.length - 1);
-      renderRoomsMobile();
+      renderRoomsMobilePlanner();
       const sheet = $(`#hotelMobile .msheet[data-h="${h.id}"]`);
       sheet?.scrollIntoView({ block: "start", behavior: "smooth" });
     }
@@ -1344,6 +1396,8 @@ function wire() {
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
+  ["#changePerson", "#changeType", "#changeSearch"].forEach(id =>
+    $(id)?.addEventListener("input", renderChanges));
   $$("[data-print-report]").forEach(button => { button.onclick = () => {
     button.closest(".mobile-tools")?.removeAttribute("open");
     button.closest(".export-menu")?.removeAttribute("open");
@@ -1389,6 +1443,7 @@ function wire() {
     setState: value => { st = normalize(value); },
     setBase: value => { base = normalize(value); },
     getName: currentName,
+    getChanges,
     promptName: requestName,
     flushLocal: flushSave,
     setPending,
