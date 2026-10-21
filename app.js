@@ -879,6 +879,7 @@ function renderRoomsMobilePlanner() {
             data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number"></label></div>
         <div class="room-editor-nav"><button class="btn small" type="button" data-h="${h.id}" data-nav="prev" ${ri === 0 ? "disabled" : ""}>← Previous</button>
           <span>Room ${ri + 1} of ${h.grid.length}</span><button class="btn small" type="button" data-h="${h.id}" data-nav="next" ${ri === h.grid.length - 1 ? "disabled" : ""}>Next →</button></div>
+        <p class="day-entry-hint">Enter guests day by day. Each date below is one hotel night.</p>
         <div class="guest-night-list">${nights}</div>
       </div>
     </article>`;
@@ -957,9 +958,13 @@ function renderInvoices() {
           ${d.contact.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
         </tbody></table></div>`;
     }
+    const total = d.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
+      ?? d.cost?.find(([key]) => /grand|total|amount/i.test(key))?.[1] ?? "";
+    const legacyEdit = d.kind === "invoice"
+      ? `<button class="btn small" type="button" data-import-invoice="${esc(name)}">Make editable</button>` : "";
     return `<details class="inv legacy-invoice"${d.kind === "invoice" ? " open" : ""}>
       <summary>${esc(d.title || name)}</summary>
-      <p class="caption">${esc(d.sub || "")}</p>${body}
+      <div class="legacy-invoice-toolbar"><p class="caption">${esc(d.sub || "")}</p>${legacyEdit}</div>${body}
       ${d.caption ? `<p class="caption dim">${esc(d.caption)}</p>` : ""}
     </details>`;
   }).join("");
@@ -977,13 +982,36 @@ function renderInvoices() {
       </div>
       <dl class="invoice-meta">
         <div><dt>Date</dt><dd>${esc(invoice.date || "Not set")}</dd></div>
-        <div><dt>Notes</dt><dd>${esc(invoice.notes || "No notes yet")}</dd></div>
       </dl>
+      <details class="invoice-notes"${invoice.notes ? "" : " disabled"}>
+        <summary>Notes ${invoice.notes ? "· view details" : "· none added"}</summary>
+        <p>${esc(invoice.notes || "No notes yet")}</p>
+      </details>
       ${invoice.pdf ? `<a class="invoice-link" href="${esc(invoice.pdf)}" target="_blank" rel="noopener">Open invoice link ↗</a>` : ""}
     </article>`).join("");
   host.innerHTML = (editable || legacy)
     ? `<div class="invoice-list">${editable}</div>${legacy ? `<h3 class="subheading">Imported invoice detail</h3>${legacy}` : ""}`
     : `<div class="empty-state"><div class="empty-icon">＋</div><h3>No invoices yet</h3><p>Add an invoice to keep notes, amounts, and links available to everyone.</p></div>`;
+}
+
+function importLegacyInvoice(name) {
+  const detail = st.vendorDetails?.[name];
+  if (!detail) return;
+  const amount = detail.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
+    ?? detail.cost?.find(([key]) => /grand|total|amount/i.test(key))?.[1] ?? "";
+  st.invoices.push({
+    id: `invoice-${Date.now()}`,
+    title: detail.title || name,
+    vendor: name,
+    number: "",
+    date: "",
+    amount,
+    status: "Unpaid",
+    pdf: detail.pdf || "",
+    notes: [detail.terms, detail.caption].filter(Boolean).join("\n\n"),
+  });
+  recordChange(`Created editable invoice from "${detail.title || name}"`);
+  save(); renderAll(); flash("Invoice is now editable");
 }
 
 function resetInvoiceForm() {
@@ -1382,6 +1410,8 @@ function wire() {
   $("#invoiceForm").onsubmit = addOrUpdateInvoice;
   $("#cancelInvoice").onclick = resetInvoiceForm;
   $("#invoicePanels").addEventListener("click", e => {
+    const imported = e.target.closest("[data-import-invoice]");
+    if (imported) { importLegacyInvoice(imported.dataset.importInvoice); return; }
     const edit = e.target.closest("[data-edit-invoice]");
     if (edit) { editInvoice(+edit.dataset.editInvoice); return; }
     const remove = e.target.closest("[data-delete-invoice]");
