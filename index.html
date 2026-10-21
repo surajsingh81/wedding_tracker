@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+  (() => {
+    const url = new URL(location.href);
+    const refreshedAt = Number(url.searchParams.get("_fresh"));
+    if (!refreshedAt || Date.now() - refreshedAt > 1000) {
+      url.searchParams.set("_fresh", String(Date.now()));
+      location.replace(url.href);
+    }
+  })();
+</script>
+<!-- viewport-fit=cover + safe-area padding lets the thumb bar sit on the
+     home-indicator strip instead of being clipped. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2c5735" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11150f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Suraj & Priyanka — Wedding Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=35">
+</head>
+<body>
+
+<!-- ============================================ NAME GATE (asked before password) -->
+<div id="nameLock" class="lock" hidden>
+  <form id="nameLockForm" class="lock-card">
+    <h1>What&rsquo;s your name?</h1>
+    <p id="nameLockWhy" class="dim">Your name is attached to edits when you choose to sync them.</p>
+    <input id="nameLockInput" type="text" placeholder="Your name"
+           autocomplete="name" enterkeyhint="done" autocapitalize="words">
+    <p id="nameLockErr" class="lock-err"></p>
+    <div class="lock-row">
+      <button type="submit" class="btn primary">Continue</button>
+      <button type="button" id="nameLockCancel" class="btn">Not now</button>
+    </div>
+  </form>
+</div>
+
+<!-- ==================================================== SAVE CONFIRM MODAL -->
+<div id="saveLock" class="lock" hidden>
+  <form id="saveLockForm" class="lock-card">
+    <div class="lock-steps" aria-hidden="true">
+      <span class="lock-step done" id="stepName">1&nbsp;Name</span>
+      <span class="lock-step active" id="stepPass">2&nbsp;Password</span>
+    </div>
+    <h1>Save to shared tracker</h1>
+    <p class="dim">Enter the live-edit password to share your saved changes.</p>
+    <input id="saveLockPass" type="password" placeholder="Password"
+           autocomplete="current-password" enterkeyhint="go">
+    <div class="lock-row">
+      <button type="submit" class="btn primary">Send</button>
+      <button type="button" id="saveLockCancel" class="btn">Cancel</button>
+    </div>
+    <p id="saveLockErr" class="lock-err"></p>
+  </form>
+</div>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <div class="orn">&#10038;</div>
+      <h1>Suraj <span class="amp">&</span> Priyanka</h1>
+      <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
+    </div>
+    <div class="topbar-actions">
+      <!-- The name is confirmed again from the Sync action before anything is sent. -->
+      <input id="yourName" class="name-input" placeholder="Your name" data-empty="1"
+             title="Your name is attached when you manually sync changes"
+             autocomplete="name" enterkeyhint="done">
+      <span id="saveState" class="save-state" aria-live="polite">Data Synced</span>
+      <div class="desktop-tools">
+        <details class="export-menu">
+          <summary class="btn btn-quiet">Export PDF</summary>
+          <div class="export-popover">
+            <strong>Choose a report</strong>
+            <button type="button" data-print-report="overview">Overview</button>
+            <button type="button" data-print-report="rooms">Room bookings</button>
+            <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="invoices">Invoices</button>
+          </div>
+        </details>
+        <button id="btnReset" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
+      </div>
+      <details class="mobile-tools">
+        <summary class="btn">More</summary>
+        <div class="mobile-tools-menu">
+          <div class="mobile-export">
+            <strong>Export PDF</strong>
+            <button type="button" data-print-report="overview">Overview report</button>
+            <button type="button" data-print-report="rooms">Room bookings</button>
+            <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="invoices">Invoices</button>
+          </div>
+          <button type="button" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">
+            <span class="tool-copy"><strong>Reset local edits</strong><small>Discard unsynced changes</small></span>
+          </button>
+        </div>
+      </details>
+      <button id="btnSync" class="btn primary" data-pending="0" title="Share your saved changes; asks for your name and password">Sync changes</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs wrap" id="tabs">
+  <button class="tab active" data-view="overview">Overview</button>
+  <button class="tab" data-view="rooms">Rooms & Guests</button>
+  <button class="tab" data-view="vendors">Vendors & Payments</button>
+  <button class="tab" data-view="invoices">Invoices</button>
+  <button class="tab" data-view="changes">Changes</button>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============================================================ OVERVIEW -->
+  <section id="view-overview" class="view">
+    <div class="cards" id="overviewCards"></div>
+
+    <h2>Rooms by night</h2>
+    <p class="hint">How many rooms are booked versus how many guests have actually been
+       entered. Tap <strong>Rooms & Guests</strong> to fill names in.</p>
+    <div id="nightBars"></div>
+
+    <h2>Money</h2>
+    <p class="hint">Same figures as the Vendors sheet in the spreadsheet.</p>
+    <div class="cards" id="moneyCards"></div>
+  </section>
+
+  <!-- ================================================================ ROOMS -->
+  <section id="view-rooms" class="view" hidden>
+    <p class="hint desktop-only">
+      Set the <strong>Pre-Booked Rooms</strong> count separately for each date and enter
+      guest names in the matching room rows. A room with two or three people still counts
+      as <strong>one room</strong>. The <strong>G3</strong> slot is the extra third occupant
+      the hotel bills on top of the room rate &mdash; each entry adds a billable guest-night.
+    </p>
+
+    <details id="addHotelPanel" class="add-hotel">
+      <summary class="btn primary">+ Add hotel</summary>
+      <form id="hotelForm" class="hotel-form">
+        <label>Hotel name
+          <input id="newHotelName" type="text" maxlength="31" autocomplete="organization" required>
+        </label>
+        <label>Check-in
+          <input id="newHotelCheckIn" type="date" required>
+        </label>
+        <label>Check-out
+          <input id="newHotelCheckOut" type="date" required>
+        </label>
+        <label>Maximum rooms available
+          <input id="newHotelCapacity" type="number" min="1" max="500" value="1" required>
+        </label>
+        <div id="newHotelNights" class="hotel-night-fields">
+          <p class="dim">Choose check-in and check-out dates to set pre-booked rooms for each night.</p>
+        </div>
+        <p id="hotelFormError" class="form-error" role="status" aria-live="polite"></p>
+        <div class="hotel-form-actions">
+          <button type="submit" class="btn primary">Add hotel and guest list</button>
+          <button type="button" class="btn" id="cancelAddHotel">Cancel</button>
+        </div>
+      </form>
+    </details>
+
+    <!-- Desktop: the full room x night x slot grid. -->
+    <div id="hotelPanels" class="desktop-only"></div>
+
+    <!-- Phone: a room picker plus one room at a time, filled top to bottom. -->
+    <div id="hotelMobile" class="mobile-only"></div>
+    <p class="hint mobile-only">Use the guided flow above: choose a hotel, choose a night, choose a room, and enter the guests staying that night. Guest 3 is optional and may be billed as an extra occupant.</p>
+  </section>
+
+  <!-- ============================================================= VENDORS -->
+  <section id="view-vendors" class="view" hidden>
+    <p class="hint"><strong>Tap any field to edit.</strong> Sync to share your changes.</p>
+    <div class="table-scroll vendor-scroll">
+      <table class="grid" id="vendorTable"></table>
+    </div>
+    <div class="vendor-actions">
+      <button id="btnAddVendor" class="btn">+ Add vendor</button>
+    </div>
+    <h2>Summary</h2>
+    <div class="cards" id="vendorSummary"></div>
+  </section>
+
+  <!-- ============================================================ INVOICES -->
+  <section id="view-invoices" class="view" hidden>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Financial records</p>
+        <h2>Invoices</h2>
+        <p class="hint">Keep invoice notes and payment details together. Invoice records are
+          separate from vendor totals and sync to every viewer.</p>
+      </div>
+      <button id="btnAddInvoice" class="btn primary" type="button">+ Add invoice</button>
+    </div>
+    <form id="invoiceForm" class="invoice-form" hidden>
+      <div class="invoice-form-grid">
+        <label>Invoice title <input id="invoiceTitle" maxlength="80" required></label>
+        <label>Vendor <input id="invoiceVendor" maxlength="80"></label>
+        <label>Invoice number <input id="invoiceNumber" maxlength="60"></label>
+        <label>Invoice date <input id="invoiceDate" type="date"></label>
+        <label>Amount <input id="invoiceAmount" type="number" min="0" step="0.01"></label>
+        <label>Status
+          <select id="invoiceStatus"><option>Unpaid</option><option>Part-paid</option><option>Paid</option></select>
+        </label>
+        <label class="span-2">Invoice link <input id="invoicePdf" type="url" placeholder="https://…"></label>
+        <label class="span-2">Notes <textarea id="invoiceNotes" rows="3" maxlength="2000"
+          placeholder="Add context, line items, due dates, or follow-up notes"></textarea></label>
+      </div>
+      <div class="invoice-form-actions">
+        <button class="btn primary" type="submit">Save invoice</button>
+        <button class="btn" type="button" id="cancelInvoice">Cancel</button>
+      </div>
+      <p id="invoiceFormError" class="form-error" role="status"></p>
+    </form>
+    <div id="invoicePanels"></div>
+  </section>
+
+  <!-- ============================================================= CHANGES -->
+  <section id="view-changes" class="view" hidden>
+    <div class="section-heading">
+      <div><p class="eyebrow">Team activity</p><h2>Changes</h2>
+        <p class="hint">Shared database activity is visible to every planner, including who changed what and when.</p></div>
+    </div>
+    <div class="change-filters">
+      <label>Person <select id="changePerson"><option value="">Everyone</option></select></label>
+      <label>Type <select id="changeType"><option value="">All changes</option><option value="invoice">Invoices</option><option value="vendor">Vendors</option><option value="room">Rooms & guests</option><option value="hotel">Hotels</option><option value="sync">Syncs</option></select></label>
+      <label>Search <input id="changeSearch" type="search" placeholder="Search activity"></label>
+    </div>
+    <div id="changesList"></div>
+  </section>
+
+</main>
+
+<section id="pdfReport" aria-hidden="true"></section>
+
+<footer class="footer">
+  <div class="wrap">
+    <p class="legal">© 2026 Suraj & Priyanka</p>
+    <ul class="footer-links">
+      <li><a href="#" class="link">Privacy</a></li>
+      <li><a href="#" class="link">Terms</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script src="auth.js?v=35"></script>
+<script src="sync.js?v=35"></script>
+<script src="app.js?v=35"></script>
+<script src="realtime.js?v=35"></script>
+</body>
+</html>
