@@ -870,6 +870,24 @@
    "paidOn": "",
    "notes": "Total 41 Rooms @ Rs 2270 /Day",
    "pdf": ""
+  },
+  {
+   "row": 19,
+   "name": "IRCTC Bookings",
+   "contact": "",
+   "phone": "",
+   "whatsapp": "",
+   "email": "",
+   "address": "",
+   "event": "",
+   "eventDate": "",
+   "quoted": 50000,
+   "paid": 50000,
+   "paymentMode": "",
+   "ref": "",
+   "paidOn": "",
+   "notes": "",
+   "pdf": ""
   }
  ],
  "vendorDetails": {
