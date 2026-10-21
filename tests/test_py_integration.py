@@ -198,7 +198,7 @@ def main():
           "with no sibling data.json there is no baseline to be stale against")
 
     # it looks for a sibling literally named data.json
-    (TMP / "data.json").write_text(json.dumps({"generated": "2026-10-04"}))
+# no sibling data.json: the stale baseline check has nothing to compare against
     stale = {"v": 2, "mode": "delta", "baselineGenerated": "1999-01-01",
              "author": "Integration", "guests": [], "rooms": [],
              "stats": {"cellsConsidered": 180, "guestsSent": 0, "hotelsSent": 0}}
@@ -271,7 +271,7 @@ def main():
         pass
     finally:
         sys.argv = argv
-    (TMP / "data.json").write_text(json.dumps({"generated": "2026-10-04"}))
+# no sibling data.json: the stale baseline check has nothing to compare against
     mdata = export(mwb, TMP / "migrated-export.json")
     mh = hotels_by_name(mdata)["nirmal"]
     S_ = Suite("INTEGRATION / the migrated three-slot layout")

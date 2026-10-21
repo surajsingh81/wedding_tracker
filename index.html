@@ -15,17 +15,17 @@
     }
   })();
 </script>
-<!-- viewport-fit=cover + safe-area padding below lets the thumb bar sit on the
-     home-indicator strip instead of being clipped by it. -->
+<!-- viewport-fit=cover + safe-area padding lets the thumb bar sit on the
+     home-indicator strip instead of being clipped. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2c5735" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#11150f" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Suraj &amp; Priyanka — Wedding Tracker</title>
+<title>Suraj & Priyanka — Wedding Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
 
@@ -67,7 +67,7 @@
   <div class="wrap">
     <div class="brand">
       <div class="orn">&#10038;</div>
-      <h1>Suraj <span class="amp">&amp;</span> Priyanka</h1>
+      <h1>Suraj <span class="amp">&</span> Priyanka</h1>
       <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
     </div>
     <div class="topbar-actions">
@@ -98,8 +98,8 @@
 
 <nav class="tabs wrap" id="tabs">
   <button class="tab active" data-view="overview">Overview</button>
-  <button class="tab" data-view="rooms">Rooms &amp; Guests</button>
-  <button class="tab" data-view="vendors">Vendors &amp; Payments</button>
+  <button class="tab" data-view="rooms">Rooms & Guests</button>
+  <button class="tab" data-view="vendors">Vendors & Payments</button>
   <button class="tab" data-view="invoices">Invoices</button>
   <button class="tab" data-view="changes">Changes</button>
 </nav>
@@ -112,7 +112,7 @@
 
     <h2>Rooms by night</h2>
     <p class="hint">How many rooms are booked versus how many guests have actually been
-       entered. Tap <strong>Rooms &amp; Guests</strong> to fill names in.</p>
+       entered. Tap <strong>Rooms & Guests</strong> to fill names in.</p>
     <div id="nightBars"></div>
 
     <h2>Money</h2>
@@ -198,32 +198,18 @@
 
 </main>
 
-<footer class="wrap foot">
-  <p>Edits are saved on this device as you type. Tap <strong>Sync changes</strong> to
-     share them; your name and password are requested only then. Shared edits from other
-     people still appear live. Refreshing discards unsynced edits. <strong>Reset</strong> discards this device&rsquo;s unsynced
-     edits and returns to the latest shared data.</p>
-  <p class="dim" id="syncStatus" aria-live="polite">Figures generated from the workbook on <span id="genDate"></span>.</p>
-  <p class="love">Made with &hearts; for Suraj &amp; Priyanka &middot; December 2026</p>
+
+<footer class="footer">
+  <div class="wrap">
+    <p class="legal">© 2026 Suraj & Priyanka</p>
+    <ul class="footer-links">
+      <li><a href="#" class="link">Privacy</a></li>
+      <li><a href="#" class="link">Terms</a></li>
+    </ul>
+  </div>
 </footer>
 
-<div id="syncToast" class="sync-toast" role="status" aria-live="polite" hidden></div>
-
-<!-- Sticky thumb bar (phones only): name + Save within one thumb reach. -->
-<div class="sticky-save">
-  <span id="saveStateBar" class="save-state" aria-live="polite">Data Synced</span>
-  <input id="yourNameBar" class="name-input" placeholder="Your name" data-empty="1"
-         title="Your name is attached when you manually sync changes"
-         autocomplete="name" enterkeyhint="done">
-  <button id="btnSyncBar" class="btn primary" data-pending="0" title="Share your saved changes">Sync</button>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="realtime-config.js?v=17"></script>
-<script src="sync-config.js?v=14"></script>
-<script src="auth.js?v=15"></script>
-<script src="realtime.js?v=25"></script>
-<script src="sync.js?v=14"></script>
-<script src="app.js?v=25"></script>
+<script src="app.js"></script>
+<script src="realtime.js"></script>
 </body>
 </html>
