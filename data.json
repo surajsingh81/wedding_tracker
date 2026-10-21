@@ -827,12 +827,12 @@
    "address": "",
    "event": "Wedding",
    "eventDate": "11-Dec-2026",
-   "quoted": "",
+   "quoted": 6200,
    "paid": "",
    "paymentMode": "",
    "ref": "",
    "paidOn": "",
-   "notes": "",
+   "notes": "Rs 5000 for 50 Person and Rs 1200 for Groom",
    "pdf": ""
   },
   {
