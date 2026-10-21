@@ -739,10 +739,22 @@ function renderRoomsDesktop() {
    One room at a time. mSel remembers which room is open per hotel so a repaint
    never throws the person back to room 1. */
 const mSel = {};
+let mHotel = "";
+const mDay = {};
 function mRoom(h) {
   const i = Math.min(Math.max(0, mSel[h.id] ?? 0), Math.max(0, h.grid.length - 1));
   mSel[h.id] = i;
   return i;
+}
+function mHotelState() {
+  const h = st.hotels.find(x => x.id === mHotel) || st.hotels[0];
+  if (h) mHotel = h.id;
+  return h;
+}
+function mobileGuestProgress(h) {
+  const total = h.grid.reduce((sum, row) => sum + row.reduce((n, cell) => n + (cell.some(Boolean) ? 1 : 0), 0), 0);
+  const filled = h.grid.reduce((sum, row) => sum + row.reduce((n, cell) => n + (cell.some(Boolean) ? 1 : 0), 0), 0);
+  return { total: h.needed.reduce((a, b) => a + b, 0), filled };
 }
 function mobileStatsPills(h, ri) {
   const n = roomNights(h, ri), g = roomGuests(h, ri), t = roomThird(h, ri);
@@ -851,39 +863,36 @@ function renderRoomsMobile() {
 
 function renderRoomsMobilePlanner() {
   const host = $("#hotelMobile"); if (!host) return;
-  host.innerHTML = st.hotels.map(h => {
-    const hs = hotelStatus(h), ri = mRoom(h), row = h.grid[ri], no = h.roomNos[ri] || "";
-    const guestCount = row.reduce((sum, cell) => sum + cell.filter(Boolean).length, 0);
-    const nights = h.nights.map((night, ni) => {
-      const cell = row[ni];
-      return `<section class="guest-night-card">
-        <div class="guest-night-head"><div><strong>${esc(wd(night))}</strong><small>${esc(night)}</small></div>
-          <span class="pill ${nightStatus(h, ni).cls}">${nightStatus(h, ni).f}/${nightStatus(h, ni).prebooked} rooms</span></div>
-        <div class="guest-fields">${Array.from({ length: SLOTS }, (_, g) => `
-          <label class="guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3 · extra" : `Guest ${g + 1}`}</span>
-            <input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter name"
-              data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off"
-              aria-label="${esc(no || `Room ${ri + 1}`)} ${night} guest ${g + 1}"></label>`).join("")}</div>
-      </section>`;
-    }).join("");
-    return `<article class="mobile-hotel-card panel" data-h="${h.id}">
-      <div class="mobile-hotel-title"><div><p class="eyebrow">Hotel stay</p><h3>${esc(h.name)}</h3>
-        <small>${esc(h.checkIn)} → ${esc(h.checkOut)}</small></div><div class="statpills">${statPills(h, hs)}</div></div>
-      <div class="sumcards">${sumCards(h, hs)}</div>
-      <div class="room-list-label"><strong>Choose a room</strong><span>${h.grid.length} rooms · ${guestCount} names in this room</span></div>
-      <div class="roomchips">${mobileChips(h)}</div>
-      <div class="msheet" data-h="${h.id}">
-        <div class="room-editor-head"><div><span class="eyebrow">Editing room ${ri + 1}</span>
-          <h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3></div>
-          <label>Hotel room no.<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204"
-            data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number"></label></div>
-        <div class="room-editor-nav"><button class="btn small" type="button" data-h="${h.id}" data-nav="prev" ${ri === 0 ? "disabled" : ""}>← Previous</button>
-          <span>Room ${ri + 1} of ${h.grid.length}</span><button class="btn small" type="button" data-h="${h.id}" data-nav="next" ${ri === h.grid.length - 1 ? "disabled" : ""}>Next →</button></div>
-        <p class="day-entry-hint">Enter guests day by day. Each date below is one hotel night.</p>
-        <div class="guest-night-list">${nights}</div>
-      </div>
-    </article>`;
+  const h = mHotelState();
+  if (!h) { host.innerHTML = `<div class="empty-state"><h3>No hotel stays yet</h3><p>Add a hotel to start assigning guests.</p></div>`; return; }
+  const hs = hotelStatus(h), ri = mRoom(h), ni = Math.min(Math.max(0, mDay[h.id] ?? 0), h.nights.length - 1);
+  mDay[h.id] = ni;
+  const row = h.grid[ri], cell = row[ni], no = h.roomNos[ri] || "";
+  const status = nightStatus(h, ni);
+  const hotelTabs = st.hotels.map(item => `<button type="button" class="mobile-hotel-chip${item.id === h.id ? " active" : ""}" data-mobile-hotel="${item.id}">${esc(item.name)}<small>${hotelStatus(item).roomsInUse}/${item.roomsBooked} rooms</small></button>`).join("");
+  const dayTabs = h.nights.map((night, i) => {
+    const s = nightStatus(h, i);
+    return `<button type="button" class="mobile-day-chip${i === ni ? " active" : ""}" data-mobile-day="${i}"><strong>${esc(wd(night).slice(0, 3))}</strong><small>${esc(night.slice(0, 6))}</small><em>${s.f}/${s.prebooked}</em></button>`;
   }).join("");
+  host.innerHTML = `<div class="mobile-planner">
+    <div class="mobile-planner-intro"><p class="eyebrow">Guest check-in</p><h2>Build the room list</h2>
+      <p>Choose a hotel, date, and room. Then add the guests staying that night.</p></div>
+    <div class="mobile-hotel-tabs" role="tablist">${hotelTabs}</div>
+    <article class="mobile-stay-card">
+      <div class="mobile-stay-head"><div><span class="eyebrow">Selected hotel</span><h3>${esc(h.name)}</h3><p>${esc(h.checkIn)} → ${esc(h.checkOut)}</p></div><span class="stay-progress">${hs.roomsInUse}/${h.roomsBooked}<small>rooms complete</small></span></div>
+      <div class="mobile-progress"><span style="width:${Math.min(100, h.roomsBooked ? hs.roomsInUse / h.roomsBooked * 100 : 0)}%"></span></div>
+      <div class="mobile-step"><span class="step-number">1</span><div><strong>Choose the night</strong><small>Guest names are saved separately for each date</small></div></div>
+      <div class="mobile-day-tabs">${dayTabs}</div>
+      <div class="mobile-step"><span class="step-number">2</span><div><strong>Choose the room</strong><small>Room ${ri + 1} · ${no ? `hotel room ${esc(no)}` : "number not entered yet"}</small></div></div>
+      <div class="mobile-room-tabs">${mobileChips(h)}</div>
+      <div class="mobile-guest-editor">
+        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} pre-booked rooms have guest details</p></div><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-r="${ri}" aria-label="Hotel room number"></label></div>
+        <div class="mobile-guest-fields">${Array.from({ length: SLOTS }, (_, g) => `<label class="mobile-guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3" : `Guest ${g + 1}`}<small>${g === 2 ? "Optional extra guest" : "Name"}</small></span><input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter full name" data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off" enterkeyhint="${g === SLOTS - 1 ? "done" : "next"}"></label>`).join("")}</div>
+        <p class="mobile-save-tip">Changes save on this device as you type. Use <strong>Sync changes</strong> when you are ready to share them with the team.</p>
+      </div>
+      <div class="mobile-nav"><button class="btn small" type="button" data-mobile-nav="prev" data-h="${h.id}" ${ni === 0 ? "disabled" : ""}>← Previous night</button><span>Night ${ni + 1} of ${h.nights.length}</span><button class="btn small primary" type="button" data-mobile-nav="next" data-h="${h.id}" ${ni === h.nights.length - 1 ? "disabled" : ""}>Next night →</button></div>
+    </article>
+  </div>`;
 }
 
 /* Shared repaint for one panel in either layer. Must never touch an input, or
@@ -1363,6 +1372,20 @@ function wire() {
 
   // room picker + prev/next on the phone sheet
   document.addEventListener("click", e => {
+    const hotelChip = e.target.closest("[data-mobile-hotel]");
+    if (hotelChip) {
+      mHotel = hotelChip.dataset.mobileHotel;
+      renderRoomsMobilePlanner();
+      return;
+    }
+    const dayChip = e.target.closest("[data-mobile-day]");
+    if (dayChip) {
+      const h = mHotelState();
+      if (!h) return;
+      mDay[h.id] = +dayChip.dataset.mobileDay;
+      renderRoomsMobilePlanner();
+      return;
+    }
     const chip = e.target.closest(".roomchip");
     if (chip) {
       mSel[chip.dataset.h] = +chip.dataset.r;
@@ -1378,6 +1401,13 @@ function wire() {
       renderRoomsMobilePlanner();
       const sheet = $(`#hotelMobile .msheet[data-h="${h.id}"]`);
       sheet?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    const mobileNav = e.target.closest("[data-mobile-nav]");
+    if (mobileNav) {
+      const h = st.hotels.find(x => x.id === mobileNav.dataset.h);
+      if (!h) return;
+      mDay[h.id] = Math.min(Math.max(0, (mDay[h.id] ?? 0) + (mobileNav.dataset.mobileNav === "next" ? 1 : -1)), h.nights.length - 1);
+      renderRoomsMobilePlanner();
     }
   });
 
