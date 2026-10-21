@@ -165,6 +165,42 @@ function makeHotel(name, checkIn, checkOut, capacity, needed) {
   };
 }
 
+function stayControls(h) {
+  const rows = h.nights.map((night, i) => `<label class="stay-night-row"><span>${esc(wd(night))}<small>${esc(night)}</small></span>
+    <input class="prebooked-count" type="number" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
+      data-h="${h.id}" data-n="${i}" inputmode="numeric" aria-label="${esc(h.name)} booked rooms for ${esc(night)}"></label>`).join("");
+  return `<details class="stay-settings"><summary>Edit booked rooms & dates</summary>
+    <div class="stay-settings-body"><p class="dim">Change the booking count for any night or add another night to this hotel stay.</p>
+      <div class="stay-night-list">${rows}</div>
+      <form class="add-stay-night" data-h="${h.id}">
+        <label>New date <input type="date" name="date" required></label>
+        <label>Booked rooms <input type="number" name="count" min="0" max="${h.totalRooms}" value="0" required></label>
+        <button class="btn small primary" type="submit">Add date</button>
+        <p class="form-error" data-stay-error role="status"></p>
+      </form>
+    </div></details>`;
+}
+
+function addStayNight(h, iso, count) {
+  const date = formatTrackerDate(iso);
+  if (!date) return "Choose a valid date.";
+  if (h.nights.some(n => trackerDateToISO(n) === iso)) return "That date is already part of this stay.";
+  const entries = h.nights.map((night, i) => ({ night, need: h.needed[i], cells: h.grid.map(row => row[i]) }));
+  entries.push({ night: date, need: Math.max(0, Math.min(h.totalRooms, Math.floor(Number(count) || 0))), cells: h.grid.map(() => Array(SLOTS).fill("")) });
+  entries.sort((a, b) => trackerDateToISO(a.night).localeCompare(trackerDateToISO(b.night)));
+  h.nights = entries.map(x => x.night);
+  h.needed = entries.map(x => x.need);
+  h.grid = h.grid.map((row, ri) => entries.map(x => x.cells[ri]));
+  h.roomsBooked = Math.max(0, ...h.needed);
+  h.totalRoomNights = h.needed.reduce((sum, value) => sum + value, 0);
+  const dates = h.nights.map(trackerDateToISO).sort();
+  h.checkIn = formatTrackerDate(dates[0]);
+  const last = new Date(`${dates.at(-1)}T00:00:00Z`);
+  last.setUTCDate(last.getUTCDate() + 1);
+  h.checkOut = formatTrackerDate(last.toISOString().slice(0, 10));
+  return "";
+}
+
 function renderNewHotelNights() {
   const host = $("#newHotelNights");
   if (!host) return;
@@ -710,6 +746,7 @@ function renderRoomsDesktop() {
         </div>
         <div class="statpills">${statPills(h, hs)}</div>
       </div>
+      ${stayControls(h)}
       <div class="sumcards">${sumCards(h, hs)}</div>
       <div class="table-scroll">
         <table class="grid">
@@ -885,8 +922,9 @@ function renderRoomsMobilePlanner() {
       <div class="mobile-day-tabs">${dayTabs}</div>
       <div class="mobile-step"><span class="step-number">2</span><div><strong>Choose the room</strong><small>Room ${ri + 1} · ${no ? `hotel room ${esc(no)}` : "number not entered yet"}</small></div></div>
       <div class="mobile-room-tabs">${mobileChips(h)}</div>
+      ${stayControls(h)}
       <div class="mobile-guest-editor">
-        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} pre-booked rooms have guest details</p></div><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-r="${ri}" aria-label="Hotel room number"></label></div>
+        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} pre-booked rooms have guest details</p></div><div class="mobile-editor-controls"><label>Booked rooms<input class="prebooked-count" type="number" min="0" max="${h.totalRooms}" value="${h.needed[ni]}" data-h="${h.id}" data-n="${ni}" aria-label="Booked rooms for ${h.nights[ni]}"></label><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-r="${ri}" aria-label="Hotel room number"></label></div></div>
         <div class="mobile-guest-fields">${Array.from({ length: SLOTS }, (_, g) => `<label class="mobile-guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3" : `Guest ${g + 1}`}<small>${g === 2 ? "Optional extra guest" : "Name"}</small></span><input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter full name" data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off" enterkeyhint="${g === SLOTS - 1 ? "done" : "next"}"></label>`).join("")}</div>
         <p class="mobile-save-tip">Changes save on this device as you type. Use <strong>Sync changes</strong> when you are ready to share them with the team.</p>
       </div>
@@ -1350,6 +1388,18 @@ function wire() {
   });
 
   $("#hotelForm")?.addEventListener("submit", addHotelFromForm);
+  document.addEventListener("submit", e => {
+    const form = e.target.closest(".add-stay-night");
+    if (!form) return;
+    e.preventDefault();
+    const h = st.hotels.find(x => x.id === form.dataset.h);
+    if (!h) return;
+    const error = form.querySelector("[data-stay-error]");
+    const message = addStayNight(h, form.elements.date.value, form.elements.count.value);
+    if (message) { error.textContent = message; return; }
+    save(); recordChange(`Added a booking date to "${h.name}"`);
+    renderAll(); flash("Date added to hotel stay");
+  });
   for (const id of ["#newHotelCheckIn", "#newHotelCheckOut", "#newHotelCapacity"])
     $(id)?.addEventListener("input", renderNewHotelNights);
   $("#cancelAddHotel")?.addEventListener("click", () => {
