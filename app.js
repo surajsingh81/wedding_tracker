@@ -170,7 +170,13 @@ function stayControls(h) {
     <input class="prebooked-count" type="number" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
       data-h="${h.id}" data-n="${i}" inputmode="numeric" aria-label="${esc(h.name)} booked rooms for ${esc(night)}"></label>`).join("");
   return `<details class="stay-settings"><summary>Edit booked rooms & dates</summary>
-    <div class="stay-settings-body"><p class="dim">Change the booking count for any night or add another night to this hotel stay.</p>
+    <div class="stay-settings-body"><p class="dim">Change the stay range or adjust booked rooms for any night. Existing guest names are kept when their date remains in the stay.</p>
+      <form class="update-stay-dates" data-h="${h.id}">
+        <label>Check-in <input type="date" name="checkIn" value="${esc(trackerDateToISO(h.checkIn))}" required></label>
+        <label>Check-out <input type="date" name="checkOut" value="${esc(trackerDateToISO(h.checkOut))}" required></label>
+        <button class="btn small primary" type="submit">Update stay dates</button>
+        <p class="form-error" data-date-error role="status"></p>
+      </form>
       <div class="stay-night-list">${rows}</div>
       <form class="add-stay-night" data-h="${h.id}">
         <label>New date <input type="date" name="date" required></label>
@@ -179,6 +185,25 @@ function stayControls(h) {
         <p class="form-error" data-stay-error role="status"></p>
       </form>
     </div></details>`;
+}
+
+function updateStayDates(h, checkIn, checkOut) {
+  const nights = hotelNightsFromDates(checkIn, checkOut);
+  if (!nights.length) return "Choose a check-out date after check-in, with up to 90 nights.";
+  const old = new Map(h.nights.map((night, i) => [
+    trackerDateToISO(night),
+    { need: h.needed[i], cells: h.grid.map(row => row[i]) },
+  ]));
+  const fallback = h.needed.at(-1) || 0;
+  h.nights = nights;
+  h.needed = nights.map(night => old.get(trackerDateToISO(night))?.need ?? fallback);
+  h.grid = h.grid.map((row, ri) => nights.map(night =>
+    old.get(trackerDateToISO(night))?.cells[ri] || Array(SLOTS).fill("")));
+  h.checkIn = formatTrackerDate(checkIn);
+  h.checkOut = formatTrackerDate(checkOut);
+  h.roomsBooked = Math.max(0, ...h.needed);
+  h.totalRoomNights = h.needed.reduce((sum, value) => sum + value, 0);
+  return "";
 }
 
 function addStayNight(h, iso, count) {
@@ -1389,6 +1414,18 @@ function wire() {
 
   $("#hotelForm")?.addEventListener("submit", addHotelFromForm);
   document.addEventListener("submit", e => {
+    const datesForm = e.target.closest(".update-stay-dates");
+    if (datesForm) {
+      e.preventDefault();
+      const h = st.hotels.find(x => x.id === datesForm.dataset.h);
+      if (!h) return;
+      const error = datesForm.querySelector("[data-date-error]");
+      const message = updateStayDates(h, datesForm.elements.checkIn.value, datesForm.elements.checkOut.value);
+      if (message) { error.textContent = message; return; }
+      save(); recordChange(`Updated stay dates for "${h.name}"`);
+      renderAll(); flash("Hotel stay dates updated");
+      return;
+    }
     const form = e.target.closest(".add-stay-night");
     if (!form) return;
     e.preventDefault();
