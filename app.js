@@ -615,15 +615,12 @@ function renderOverview() {
   ).join("");
 
   $("#nightBars").innerHTML = st.hotels.map(h => `
-    <h3>${esc(h.name)}</h3>` + h.nights.map((n, i) => {
+    <div class="night-group"><h3>${esc(h.name)}</h3>` + h.nights.map((n, i) => {
       const s = nightStatus(h, i);
       const pct = s.prebooked ? Math.min(100, (s.f / s.prebooked) * 100) : 0;
-      return `<div class="night">
-        <div class="night-h"><span class="d">${esc(wd(n))}</span>
-          <span class="s ${s.cls}">${s.f} of ${s.prebooked} pre-booked rooms have guest details &middot; ${esc(s.txt)}</span></div>
-        <div class="track"><div class="fill ${s.cls}" style="width:${pct}%"></div></div>
-      </div>`;
-    }).join("")).join("");
+      return `<div class="night-row"><span>${esc(wd(n))}</span><div class="bar"><i style="width:${pct}%"></i></div>
+        <span class="status">${s.f}/${s.prebooked} rooms</span></div>`;
+    }).join("") + `</div>`).join("");
 }
 
 /* Header pills + summary cards, kept as their own renderers so a live edit can
@@ -973,6 +970,44 @@ function addOrUpdateInvoice(event) {
   save(); resetInvoiceForm(); renderAll(); flash(editing ? "Invoice updated" : "Invoice added");
 }
 
+function reportShell(title, body) {
+  return `<h1>${esc(base?.event || "Wedding Tracker")}</h1><div class="report-meta">${esc(title)} · Generated ${new Date().toLocaleDateString()}</div>${body}`;
+}
+function printReport(kind) {
+  const host = $("#pdfReport"); if (!host) return;
+  let title = "Overview report", body = "";
+  if (kind === "rooms") {
+    title = "Room booking report";
+    body = st.hotels.map(h => `<div class="report-card"><h3>${esc(h.name)}</h3>
+      <div class="muted">${esc(h.checkIn || "")} → ${esc(h.checkOut || "")}</div>
+      <table class="report-grid"><thead><tr><th>Date</th><th>Pre-booked</th><th>Guest details</th><th>Status</th></tr></thead><tbody>
+      ${h.nights.map((night, i) => { const s = nightStatus(h, i); return `<tr><td>${esc(night)}</td><td>${s.prebooked}</td><td>${s.f}</td><td>${esc(s.txt)}</td></tr>`; }).join("")}
+      </tbody></table></div>`).join("");
+  } else if (kind === "vendors") {
+    title = "Pending vendor payments";
+    const pending = st.vendors.filter(v => vendorStatus(v).cls === "warn");
+    body = `<h2>${pending.length} vendors need follow-up</h2><table class="report-grid"><thead><tr><th>Vendor</th><th>Event</th><th>Quoted</th><th>Paid</th><th>Balance</th><th>Payment mode</th></tr></thead><tbody>
+      ${pending.map(v => `<tr><td>${esc(v.name || "Untitled")}</td><td>${esc(v.event || "")}</td><td>${inr(v.quoted || 0)}</td><td>${inr(v.paid || 0)}</td><td>${inr(Math.max(0, (v.quoted || 0) - (v.paid || 0)))} </td><td>${esc(v.paymentMode || "")}</td></tr>`).join("")}
+      <tr class="report-total"><td colspan="2">Total outstanding</td><td colspan="4">${inr(pending.reduce((sum, v) => sum + Math.max(0, (v.quoted || 0) - (v.paid || 0)), 0))}</td></tr></tbody></table>`;
+  } else if (kind === "invoices") {
+    title = "Invoice register";
+    const rows = (st.invoices || []).map(i => `<tr><td>${esc(i.title || "Untitled")}</td><td>${esc(i.vendor || "")}</td><td>${esc(i.number || "")}</td><td>${esc(i.status || "Unpaid")}</td><td>${i.amount === "" ? "—" : inr(i.amount)}</td><td>${esc(i.notes || "")}</td></tr>`).join("");
+    body = `<table class="report-grid"><thead><tr><th>Invoice</th><th>Vendor</th><th>Number</th><th>Status</th><th>Amount</th><th>Notes</th></tr></thead><tbody>${rows || "<tr><td colspan=\"6\">No added invoices</td></tr>"}</tbody></table>`;
+  } else {
+    const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
+    const p = st.vendors.reduce((a, v) => a + (v.paid || 0), 0);
+    title = "Executive overview";
+    body = `<h2>Financial summary</h2><table class="report-grid"><tbody>
+      <tr><td>Total quoted</td><td>${inr(q)}</td></tr><tr><td>Total paid</td><td>${inr(p)}</td></tr>
+      <tr class="report-total"><td>Outstanding</td><td>${inr(q - p)}</td></tr></tbody></table>
+      <h2>Hotels</h2><table class="report-grid"><thead><tr><th>Hotel</th><th>Room-nights pre-booked</th><th>Room-nights with details</th></tr></thead><tbody>
+      ${st.hotels.map(h => `<tr><td>${esc(h.name)}</td><td>${h.needed.reduce((a, n) => a + n, 0)}</td><td>${h.nights.reduce((a, _, i) => a + nightStatus(h, i).f, 0)}</td></tr>`).join("")}</tbody></table>`;
+  }
+  host.innerHTML = reportShell(title, body);
+  document.body.dataset.printReport = kind;
+  window.setTimeout(() => window.print(), 30);
+}
+
 /* ------------------------------------------------------------------- events */
 const VNUM = new Set(["quoted", "paid"]);
 // desktop grid inputs and mobile sheet inputs share this selector and the same
@@ -1309,10 +1344,15 @@ function wire() {
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
-  $$(".btn-print").forEach(button => { button.onclick = () => {
+  $$("[data-print-report]").forEach(button => { button.onclick = () => {
     button.closest(".mobile-tools")?.removeAttribute("open");
-    window.print();
+    button.closest(".export-menu")?.removeAttribute("open");
+    printReport(button.dataset.printReport);
   }; });
+  window.addEventListener("afterprint", () => {
+    document.body.removeAttribute("data-print-report");
+    const report = $("#pdfReport"); if (report) report.innerHTML = "";
+  });
 
   $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();
   const bar = $("#btnSyncBar");

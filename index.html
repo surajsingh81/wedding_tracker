@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=22">
+<link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
 
@@ -77,15 +77,28 @@
              autocomplete="name" enterkeyhint="done">
       <span id="saveState" class="save-state" aria-live="polite">Data Synced</span>
       <div class="desktop-tools">
-        <button id="btnPrint" class="btn btn-print" title="Print or save as PDF">Print</button>
+        <details class="export-menu">
+          <summary class="btn btn-quiet">Export PDF</summary>
+          <div class="export-popover">
+            <strong>Choose a report</strong>
+            <button type="button" data-print-report="overview">Overview</button>
+            <button type="button" data-print-report="rooms">Room bookings</button>
+            <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="invoices">Invoices</button>
+          </div>
+        </details>
         <button id="btnReset" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
       </div>
       <details class="mobile-tools">
         <summary class="btn">More</summary>
         <div class="mobile-tools-menu">
-          <button type="button" class="btn btn-print" title="Print or save as PDF">
-            <span class="tool-copy"><strong>Print / Save PDF</strong><small>Open print options</small></span>
-          </button>
+          <div class="mobile-export">
+            <strong>Export PDF</strong>
+            <button type="button" data-print-report="overview">Overview report</button>
+            <button type="button" data-print-report="rooms">Room bookings</button>
+            <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="invoices">Invoices</button>
+          </div>
           <button type="button" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">
             <span class="tool-copy"><strong>Reset local edits</strong><small>Discard unsynced changes</small></span>
           </button>
@@ -225,6 +238,7 @@
 
 </main>
 
+<section id="pdfReport" aria-hidden="true"></section>
 
 <footer class="footer">
   <div class="wrap">
