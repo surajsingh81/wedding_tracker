@@ -1032,8 +1032,8 @@ function renderInvoices() {
     }
     const total = d.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
       ?? d.cost?.find(([key]) => /grand|total|amount/i.test(key))?.[1] ?? "";
-    const legacyEdit = d.kind === "invoice"
-      ? `<button class="btn small" type="button" data-import-invoice="${esc(name)}">Make editable</button>` : "";
+    const legacyEdit = d.kind === "invoice" || d.kind === "hotel"
+      ? `<button class="btn small" type="button" data-import-invoice="${esc(name)}">Edit</button>` : "";
     return `<details class="inv legacy-invoice"${d.kind === "invoice" ? " open" : ""}>
       <summary>${esc(d.title || name)}</summary>
       <div class="legacy-invoice-toolbar"><p class="caption">${esc(d.sub || "")}</p>${legacyEdit}</div>${body}
@@ -1069,21 +1069,42 @@ function renderInvoices() {
 function importLegacyInvoice(name) {
   const detail = st.vendorDetails?.[name];
   if (!detail) return;
-  const amount = detail.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
-    ?? detail.cost?.find(([key]) => /grand|total|amount/i.test(key))?.[1] ?? "";
-  st.invoices.push({
-    id: `invoice-${Date.now()}`,
-    title: detail.title || name,
-    vendor: name,
-    number: "",
-    date: "",
-    amount,
-    status: "Unpaid",
-    pdf: detail.pdf || "",
-    notes: [detail.terms, detail.caption].filter(Boolean).join("\n\n"),
-  });
-  recordChange(`Created editable invoice from "${detail.title || name}"`);
-  save(); renderAll(); flash("Invoice is now editable");
+  const invoices = st.invoices || (st.invoices = []);
+  let index = invoices.findIndex(invoice => invoice.sourceDetail === name);
+  if (index < 0) {
+    const amount = detail.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
+      ?? detail.cost?.find(([key]) => /amount quoted|grand|total|amount/i.test(key))?.[1] ?? "";
+    const paid = detail.cost?.find(([key]) => /amount paid/i.test(key))?.[1];
+    const booking = (detail.booking || []).map(([key, value]) => `${key}: ${value}`).join(" · ");
+    const plan = (detail.plan || []).map(([day, rooms, booked]) =>
+      `${day}: ${rooms} rooms (${booked} pre-booked)`).join(", ");
+    const notes = [
+      detail.terms,
+      booking && `Booking: ${booking}`,
+      plan && `Room plan: ${plan}`,
+      paid !== undefined && `Amount paid: ${inr(paid)}`,
+      detail.caption,
+    ].filter(Boolean).join("\n\n");
+    const status = Number(paid) >= Number(amount) && amount !== "" ? "Paid"
+      : Number(paid) > 0 ? "Part-paid" : "Unpaid";
+    invoices.push({
+      id: `invoice-${Date.now()}`,
+      sourceDetail: name,
+      title: detail.title || name,
+      vendor: name,
+      number: "",
+      date: "",
+      amount,
+      status,
+      pdf: detail.pdf || "",
+      notes,
+    });
+    index = invoices.length - 1;
+    recordChange(`Created editable invoice from "${detail.title || name}"`);
+    save();
+  }
+  renderAll();
+  editInvoice(index);
 }
 
 function resetInvoiceForm() {
