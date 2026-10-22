@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=35">
+<link rel="stylesheet" href="styles.css?v=37">
 </head>
 <body>
 
@@ -87,7 +87,7 @@
             <button type="button" data-print-report="invoices">Invoices</button>
           </div>
         </details>
-        <button id="btnReset" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">Reset</button>
+        <button id="btnReset" class="btn btn-reset danger" title="Reload the last synced data; unsynced edits will be lost">Discard local</button>
       </div>
       <details class="mobile-tools">
         <summary class="btn btn-quiet" aria-label="More options">More</summary>
@@ -99,8 +99,8 @@
             <button type="button" data-print-report="vendors">Pending vendor payments</button>
             <button type="button" data-print-report="invoices">Invoices</button>
           </div>
-          <button type="button" class="btn btn-reset danger" title="Discard pending local edits and reload shared data">
-            <span class="tool-copy"><strong>Reset local edits</strong><small>Discard unsynced changes</small></span>
+          <button type="button" class="btn btn-reset danger" title="Reload the last synced data; unsynced edits will be lost">
+            <span class="tool-copy"><strong>Discard local changes</strong><small>Reload last synced data</small></span>
           </button>
         </div>
       </details>
@@ -111,7 +111,8 @@
 
 <nav class="tabs wrap" id="tabs">
   <button class="tab active" data-view="overview">Overview</button>
-  <button class="tab" data-view="rooms">Rooms & Guests</button>
+  <button class="tab" data-view="hotels">Hotels</button>
+  <button class="tab" data-view="guests">Guests</button>
   <button class="tab" data-view="vendors">Vendors & Payments</button>
   <button class="tab" data-view="invoices">Invoices</button>
   <button class="tab" data-view="changes">Changes</button>
@@ -125,7 +126,7 @@
 
     <h2>Rooms by night</h2>
     <p class="hint">How many rooms are booked versus how many guests have actually been
-       entered. Tap <strong>Rooms & Guests</strong> to fill names in.</p>
+       entered. Use <strong>Hotels</strong> to manage bookings and <strong>Guests</strong> to enter names.</p>
     <div id="nightBars"></div>
 
     <h2>Money</h2>
@@ -133,47 +134,61 @@
     <div class="cards" id="moneyCards"></div>
   </section>
 
-  <!-- ================================================================ ROOMS -->
-  <section id="view-rooms" class="view" hidden>
+  <!-- ================================================================ HOTELS -->
+  <section id="view-hotels" class="view" hidden>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Stay planning</p>
+        <h2>Hotels & bookings</h2>
+        <p class="hint">Add hotels, set stay dates, and update the booked room count for each night.</p>
+      </div>
+      <details id="addHotelPanel" class="add-hotel">
+        <summary class="btn primary">+ Add hotel</summary>
+        <form id="hotelForm" class="hotel-form">
+          <label>Hotel name
+            <input id="newHotelName" type="text" maxlength="31" autocomplete="organization" required>
+          </label>
+          <label>Check-in
+            <input id="newHotelCheckIn" type="date" required>
+          </label>
+          <label>Check-out
+            <input id="newHotelCheckOut" type="date" required>
+          </label>
+          <label>Maximum rooms available
+            <input id="newHotelCapacity" type="number" min="1" max="500" value="1" required>
+          </label>
+          <div id="newHotelNights" class="hotel-night-fields">
+            <p class="dim">Choose check-in and check-out dates to set pre-booked rooms for each night.</p>
+          </div>
+          <p id="hotelFormError" class="form-error" role="status" aria-live="polite"></p>
+          <div class="hotel-form-actions">
+            <button type="submit" class="btn primary">Add hotel</button>
+            <button type="button" class="btn" id="cancelAddHotel">Cancel</button>
+          </div>
+        </form>
+      </details>
+    </div>
+    <div id="hotelManagement"></div>
+  </section>
+
+  <!-- ================================================================ GUESTS -->
+  <section id="view-guests" class="view" hidden>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Guest list</p>
+        <h2>Guests by room & night</h2>
+        <p class="hint">Choose a hotel, date, and room to enter the guests staying there. Update dates and room bookings in Hotels.</p>
+      </div>
+    </div>
     <p class="hint desktop-only">
-      Set the <strong>Pre-Booked Rooms</strong> count separately for each date and enter
-      guest names in the matching room rows. A room with two or three people still counts
-      as <strong>one room</strong>. The <strong>G3</strong> slot is the extra third occupant
-      the hotel bills on top of the room rate &mdash; each entry adds a billable guest-night.
+      A room with two or three people still counts as <strong>one room</strong>. Guest 3 is an
+      optional extra occupant that may incur an additional charge.
     </p>
-
-    <details id="addHotelPanel" class="add-hotel">
-      <summary class="btn primary">+ Add hotel</summary>
-      <form id="hotelForm" class="hotel-form">
-        <label>Hotel name
-          <input id="newHotelName" type="text" maxlength="31" autocomplete="organization" required>
-        </label>
-        <label>Check-in
-          <input id="newHotelCheckIn" type="date" required>
-        </label>
-        <label>Check-out
-          <input id="newHotelCheckOut" type="date" required>
-        </label>
-        <label>Maximum rooms available
-          <input id="newHotelCapacity" type="number" min="1" max="500" value="1" required>
-        </label>
-        <div id="newHotelNights" class="hotel-night-fields">
-          <p class="dim">Choose check-in and check-out dates to set pre-booked rooms for each night.</p>
-        </div>
-        <p id="hotelFormError" class="form-error" role="status" aria-live="polite"></p>
-        <div class="hotel-form-actions">
-          <button type="submit" class="btn primary">Add hotel and guest list</button>
-          <button type="button" class="btn" id="cancelAddHotel">Cancel</button>
-        </div>
-      </form>
-    </details>
-
     <!-- Desktop: the full room x night x slot grid. -->
     <div id="hotelPanels" class="desktop-only"></div>
 
     <!-- Phone: a room picker plus one room at a time, filled top to bottom. -->
     <div id="hotelMobile" class="mobile-only"></div>
-    <p class="hint mobile-only">Use the guided flow above: choose a hotel, choose a night, choose a room, and enter the guests staying that night. Guest 3 is optional and may be billed as an extra occupant.</p>
   </section>
 
   <!-- ============================================================= VENDORS -->
@@ -252,10 +267,10 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="realtime-config.js?v=36"></script>
-<script src="auth.js?v=36"></script>
-<script src="sync.js?v=36"></script>
-<script src="realtime.js?v=36"></script>
-<script src="app.js?v=36"></script>
+<script src="realtime-config.js?v=37"></script>
+<script src="auth.js?v=37"></script>
+<script src="sync.js?v=37"></script>
+<script src="realtime.js?v=37"></script>
+<script src="app.js?v=37"></script>
 </body>
 </html>

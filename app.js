@@ -169,8 +169,8 @@ function stayControls(h) {
   const rows = h.nights.map((night, i) => `<label class="stay-night-row"><span>${esc(wd(night))}<small>${esc(night)}</small></span>
     <input class="prebooked-count" type="number" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
       data-h="${h.id}" data-n="${i}" inputmode="numeric" aria-label="${esc(h.name)} booked rooms for ${esc(night)}"></label>`).join("");
-  return `<details class="stay-settings"><summary>Edit booked rooms & dates</summary>
-    <div class="stay-settings-body"><p class="dim">Change the stay range or adjust booked rooms for any night. Existing guest names are kept when their date remains in the stay.</p>
+  return `<details class="stay-settings"><summary>Manage dates & rooms</summary>
+    <div class="stay-settings-body"><p class="dim">Change the stay range or adjust booked rooms for any night. Guest names are kept for dates that remain in the stay.</p>
       <form class="update-stay-dates" data-h="${h.id}">
         <label>Check-in <input type="date" name="checkIn" value="${esc(trackerDateToISO(h.checkIn))}" required></label>
         <label>Check-out <input type="date" name="checkOut" value="${esc(trackerDateToISO(h.checkOut))}" required></label>
@@ -634,10 +634,47 @@ function renderChanges() {
 /* -------------------------------------------------------------------- render */
 function renderAll() {
   renderOverview();
+  renderHotelManagement();
   renderRooms();          // both the desktop grid and the phone sheet
   renderVendors();
   renderInvoices();
   renderChanges();
+}
+
+function renderHotelManagement() {
+  const host = $("#hotelManagement");
+  if (!host) return;
+  if (!st.hotels.length) {
+    host.innerHTML = `<div class="empty-state"><div class="empty-icon">⌂</div><h3>No hotels yet</h3><p>Add a hotel to set the stay dates and daily room bookings.</p></div>`;
+    return;
+  }
+  host.innerHTML = `<div class="hotel-admin-list">${st.hotels.map(h => {
+    return `<article class="hotel-admin-card">
+      <div class="hotel-admin-head">
+        <div><p class="eyebrow">Hotel booking</p><h3>${esc(h.name)}</h3>
+          <p>${esc(h.checkIn)} – ${esc(h.checkOut)} · ${h.totalRooms} rooms available · ${h.nights.length} ${h.nights.length === 1 ? "night" : "nights"}</p>
+        </div>
+        <button class="btn small danger" type="button" data-delete-hotel="${esc(h.id)}"
+          aria-label="Delete ${esc(h.name)}">Delete hotel</button>
+      </div>
+      ${stayControls(h)}
+    </article>`;
+  }).join("")}</div>`;
+}
+
+function deleteHotel(id) {
+  const index = st.hotels.findIndex(h => h.id === id);
+  if (index < 0) return;
+  const hotel = st.hotels[index];
+  if (!confirm(`Delete "${hotel.name}" and all of its booking and guest details? This cannot be undone.`)) return;
+  st.hotels.splice(index, 1);
+  delete mSel[id];
+  delete mDay[id];
+  if (mHotel === id) mHotel = st.hotels[0]?.id || "";
+  save();
+  recordChange(`Deleted hotel "${hotel.name}" and its booking and guest details`);
+  renderAll();
+  flash("Hotel deleted");
 }
 
 function renderOverview() {
@@ -721,6 +758,10 @@ function renderRooms() {
 
 function renderRoomsDesktop() {
   const host = $("#hotelPanels"); if (!host) return;
+  if (!st.hotels.length) {
+    host.innerHTML = `<div class="empty-state"><h3>No hotel stays yet</h3><p>Add a hotel in the Hotels tab before entering guest details.</p></div>`;
+    return;
+  }
   host.innerHTML = st.hotels.map(h => {
     const hs = hotelStatus(h);
     const booked = h.roomsBooked ?? h.totalRooms;
@@ -771,19 +812,12 @@ function renderRoomsDesktop() {
         </div>
         <div class="statpills">${statPills(h, hs)}</div>
       </div>
-      ${stayControls(h)}
       <div class="sumcards">${sumCards(h, hs)}</div>
       <div class="table-scroll">
         <table class="grid">
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
             ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
-            <tr class="total" data-row="Pre-Booked Rooms">
-              <td class="sticky-col">Pre-Booked Rooms</td>
-              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
-                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
-                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
-            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -839,6 +873,10 @@ function mobileChips(h) {
 }
 function renderRoomsMobile() {
   const host = $("#hotelMobile"); if (!host) return;
+  if (!st.hotels.length) {
+    host.innerHTML = `<div class="empty-state"><h3>No hotel stays yet</h3><p>Add a hotel in the Hotels tab before entering guest details.</p></div>`;
+    return;
+  }
   host.innerHTML = st.hotels.map(h => {
     const hs = hotelStatus(h);
     const booked = h.roomsBooked ?? h.totalRooms;
@@ -902,13 +940,6 @@ function renderRoomsMobile() {
           <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
             ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
-            <tr class="total" data-row="Pre-Booked Rooms">
-              <td class="sticky-col">Pre-Booked Rooms</td>
-              ${h.nights.map((night, i) => `<td class="num"><input class="prebooked-count"
-                type="number" inputmode="numeric" min="0" max="${h.totalRooms}" value="${h.needed[i]}"
-                data-h="${h.id}" data-n="${i}" aria-label="${h.name}: pre-booked rooms for ${night}"></td>`).join("")}
-              <td class="num"></td>
-            </tr>
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
             <tr class="total" data-row="status"><td class="sticky-col">Status</td>
@@ -926,7 +957,7 @@ function renderRoomsMobile() {
 function renderRoomsMobilePlanner() {
   const host = $("#hotelMobile"); if (!host) return;
   const h = mHotelState();
-  if (!h) { host.innerHTML = `<div class="empty-state"><h3>No hotel stays yet</h3><p>Add a hotel to start assigning guests.</p></div>`; return; }
+  if (!h) { host.innerHTML = `<div class="empty-state"><h3>No hotel stays yet</h3><p>Add a hotel in the Hotels tab before entering guest details.</p></div>`; return; }
   const hs = hotelStatus(h), ri = mRoom(h), ni = Math.min(Math.max(0, mDay[h.id] ?? 0), h.nights.length - 1);
   mDay[h.id] = ni;
   const row = h.grid[ri], cell = row[ni], no = h.roomNos[ri] || "";
@@ -947,9 +978,8 @@ function renderRoomsMobilePlanner() {
       <div class="mobile-day-tabs">${dayTabs}</div>
       <div class="mobile-step"><span class="step-number">2</span><div><strong>Choose the room</strong><small>Room ${ri + 1} · ${no ? `hotel room ${esc(no)}` : "number not entered yet"}</small></div></div>
       <div class="mobile-room-tabs">${mobileChips(h)}</div>
-      ${stayControls(h)}
       <div class="mobile-guest-editor">
-        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} pre-booked rooms have guest details</p></div><div class="mobile-editor-controls"><label>Booked rooms<input class="prebooked-count" type="number" min="0" max="${h.totalRooms}" value="${h.needed[ni]}" data-h="${h.id}" data-n="${ni}" aria-label="Booked rooms for ${h.nights[ni]}"></label><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-r="${ri}" aria-label="Hotel room number"></label></div></div>
+        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} booked rooms have guest details</p></div><div class="mobile-editor-controls"><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number"></label></div></div>
         <div class="mobile-guest-fields">${Array.from({ length: SLOTS }, (_, g) => `<label class="mobile-guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3" : `Guest ${g + 1}`}<small>${g === 2 ? "Optional extra guest" : "Name"}</small></span><input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter full name" data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off" enterkeyhint="${g === SLOTS - 1 ? "done" : "next"}"></label>`).join("")}</div>
         <p class="mobile-save-tip">Changes save on this device as you type. Use <strong>Sync changes</strong> when you are ready to share them with the team.</p>
       </div>
@@ -1434,6 +1464,10 @@ function wire() {
   });
 
   $("#hotelForm")?.addEventListener("submit", addHotelFromForm);
+  $("#hotelManagement")?.addEventListener("click", e => {
+    const button = e.target.closest("[data-delete-hotel]");
+    if (button) deleteHotel(button.dataset.deleteHotel);
+  });
   document.addEventListener("submit", e => {
     const datesForm = e.target.closest(".update-stay-dates");
     if (datesForm) {
@@ -1561,6 +1595,8 @@ function wire() {
   });
   $("#tabs").addEventListener("click", e => {
     const b = e.target.closest(".tab"); if (!b) return;
+    $(".mobile-tools")?.removeAttribute("open");
+    $(".export-menu")?.removeAttribute("open");
     $$(".tab").forEach(t => t.classList.toggle("active", t === b));
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
