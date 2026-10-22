@@ -25,54 +25,58 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=37">
+<link rel="stylesheet" href="styles.css?v=38">
 </head>
 <body>
 
+<a class="skip-link" href="#mainContent">Skip to main content</a>
+
 <!-- ============================================ NAME GATE (asked before password) -->
-<div id="nameLock" class="lock" hidden>
+<div id="nameLock" class="lock" role="dialog" aria-modal="true" aria-labelledby="nameLockHeading" hidden>
   <form id="nameLockForm" class="lock-card">
-    <h1>What&rsquo;s your name?</h1>
+    <h1 id="nameLockHeading">What&rsquo;s your name?</h1>
     <p id="nameLockWhy" class="dim">Your name is attached to edits when you choose to sync them.</p>
-    <input id="nameLockInput" type="text" placeholder="Your name"
+    <label class="visually-hidden" for="nameLockInput">Your name</label>
+    <input id="nameLockInput" type="text" placeholder="Your name" aria-describedby="nameLockWhy nameLockErr"
            autocomplete="name" enterkeyhint="done" autocapitalize="words">
-    <p id="nameLockErr" class="lock-err"></p>
+    <p id="nameLockErr" class="lock-err" role="alert"></p>
     <div class="lock-row">
       <button type="submit" class="btn primary">Continue</button>
-      <button type="button" id="nameLockCancel" class="btn">Not now</button>
+      <button type="button" id="nameLockCancel" class="btn" data-dialog-cancel>Not now</button>
     </div>
   </form>
 </div>
 
 <!-- ==================================================== SAVE CONFIRM MODAL -->
-<div id="saveLock" class="lock" hidden>
+<div id="saveLock" class="lock" role="dialog" aria-modal="true" aria-labelledby="saveLockHeading" hidden>
   <form id="saveLockForm" class="lock-card">
     <div class="lock-steps" aria-hidden="true">
       <span class="lock-step done" id="stepName">1&nbsp;Name</span>
       <span class="lock-step active" id="stepPass">2&nbsp;Password</span>
     </div>
-    <h1>Save to shared tracker</h1>
-    <p class="dim">Enter the live-edit password to share your saved changes.</p>
-    <input id="saveLockPass" type="password" placeholder="Password"
+    <h1 id="saveLockHeading">Save to shared tracker</h1>
+    <p id="saveLockHelp" class="dim">Enter the live-edit password to share your saved changes.</p>
+    <label class="visually-hidden" for="saveLockPass">Live-edit password</label>
+    <input id="saveLockPass" type="password" placeholder="Password" aria-describedby="saveLockHelp saveLockErr"
            autocomplete="current-password" enterkeyhint="go">
     <div class="lock-row">
       <button type="submit" class="btn primary">Send</button>
-      <button type="button" id="saveLockCancel" class="btn">Cancel</button>
+      <button type="button" id="saveLockCancel" class="btn" data-dialog-cancel>Cancel</button>
     </div>
-    <p id="saveLockErr" class="lock-err"></p>
+    <p id="saveLockErr" class="lock-err" role="alert"></p>
   </form>
 </div>
 
 <header class="topbar">
   <div class="wrap">
     <div class="brand">
-      <div class="orn">&#10038;</div>
+      <div class="orn" aria-hidden="true">&#10038;</div>
       <h1>Suraj <span class="amp">&</span> Priyanka</h1>
       <p class="tagline">Wedding Tracker &middot; <span id="eventName"></span></p>
     </div>
     <div class="topbar-actions">
       <!-- The name is confirmed again from the Sync action before anything is sent. -->
-      <input id="yourName" class="name-input" placeholder="Your name" data-empty="1"
+      <input id="yourName" class="name-input" placeholder="Your name" aria-label="Your name" data-empty="1"
              title="Your name is attached when you manually sync changes"
              autocomplete="name" enterkeyhint="done">
       <span id="saveState" class="save-state" aria-live="polite">Data Synced</span>
@@ -109,8 +113,8 @@
   </div>
 </header>
 
-<nav class="tabs wrap" id="tabs">
-  <button class="tab active" data-view="overview">Overview</button>
+<nav class="tabs wrap" id="tabs" aria-label="Main navigation">
+  <button class="tab active" data-view="overview" aria-current="page">Overview</button>
   <button class="tab" data-view="hotels">Hotels</button>
   <button class="tab" data-view="guests">Guests</button>
   <button class="tab" data-view="vendors">Vendors & Payments</button>
@@ -118,7 +122,7 @@
   <button class="tab" data-view="changes">Changes</button>
 </nav>
 
-<main class="wrap">
+<main class="wrap" id="mainContent" tabindex="-1">
 
   <!-- ============================================================ OVERVIEW -->
   <section id="view-overview" class="view">
@@ -193,8 +197,9 @@
 
   <!-- ============================================================= VENDORS -->
   <section id="view-vendors" class="view" hidden>
+    <h2>Vendors &amp; payments</h2>
     <p class="hint"><strong>Tap any field to edit.</strong> Sync to share your changes.</p>
-    <div class="table-scroll vendor-scroll">
+    <div class="table-scroll vendor-scroll" role="region" aria-label="Vendor payment details" tabindex="0">
       <table class="grid" id="vendorTable"></table>
     </div>
     <div class="vendor-actions">
@@ -215,7 +220,7 @@
       </div>
       <button id="btnAddInvoice" class="btn primary" type="button">+ Add invoice</button>
     </div>
-    <form id="invoiceForm" class="invoice-form" hidden>
+    <form id="invoiceForm" class="invoice-form" aria-label="Invoice details" hidden>
       <div class="invoice-form-grid">
         <label>Invoice title <input id="invoiceTitle" maxlength="80" required></label>
         <label>Vendor <input id="invoiceVendor" maxlength="80"></label>
@@ -233,7 +238,7 @@
         <button class="btn primary" type="submit">Save invoice</button>
         <button class="btn" type="button" id="cancelInvoice">Cancel</button>
       </div>
-      <p id="invoiceFormError" class="form-error" role="status"></p>
+      <p id="invoiceFormError" class="form-error" role="alert"></p>
     </form>
     <div id="invoicePanels"></div>
   </section>
@@ -259,18 +264,14 @@
 <footer class="footer">
   <div class="wrap">
     <p class="legal">© 2026 Suraj & Priyanka</p>
-    <ul class="footer-links">
-      <li><a href="#" class="link">Privacy</a></li>
-      <li><a href="#" class="link">Terms</a></li>
-    </ul>
   </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="realtime-config.js?v=37"></script>
-<script src="auth.js?v=37"></script>
-<script src="sync.js?v=37"></script>
-<script src="realtime.js?v=37"></script>
-<script src="app.js?v=37"></script>
+<script src="realtime-config.js?v=38"></script>
+<script src="auth.js?v=38"></script>
+<script src="sync.js?v=38"></script>
+<script src="realtime.js?v=38"></script>
+<script src="app.js?v=38"></script>
 </body>
 </html>

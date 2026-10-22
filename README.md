@@ -71,6 +71,14 @@ bookings and guest names.
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.
 
+## Accessibility
+
+The site supports keyboard navigation, visible focus indicators, a skip-to-content
+link, labeled form controls, and focus-managed name/password dialogs. The mobile
+hotel and date selectors announce their selected state, and invoice tables wrap
+to fit narrow screens. Animations are reduced when the device requests reduced
+motion; color contrast was checked in both light and dark themes.
+
 ## PDF reports
 
 Use **Export PDF** in the header (or **More** on mobile) to create a clean,

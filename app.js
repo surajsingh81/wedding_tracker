@@ -559,12 +559,20 @@ function requestName(why) {
     const el = $("#nameLock"), input = $("#nameLockInput"), err = $("#nameLockErr");
     const whyEl = $("#nameLockWhy");
     if (!el || !input) { namePrompt = null; return resolve(false); }
+    const returnTo = document.activeElement;
+    const releaseFocus = typeof trapLockFocus === "function" ? trapLockFocus(el) : () => {};
     if (whyEl && why) whyEl.textContent = why;
     el.hidden = false;
     input.value = currentName();
     err.textContent = "";
     input.focus();
-    const done = ok => { el.hidden = true; namePrompt = null; resolve(ok); };
+    const done = ok => {
+      el.hidden = true;
+      releaseFocus();
+      if (returnTo?.isConnected) returnTo.focus();
+      namePrompt = null;
+      resolve(ok);
+    };
     $("#nameLockForm").onsubmit = e => {
       e.preventDefault();
       const v = input.value.trim();
@@ -621,11 +629,11 @@ function renderChanges() {
     personSelect.value = people.includes(current) ? current : "";
   }
   if (!filtered.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><h3>${log.length ? "No matching activity" : "No activity yet"}</h3><p>Synced changes will appear here with the editor name and details.</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">✓</div><h3>${log.length ? "No matching activity" : "No activity yet"}</h3><p>Synced changes will appear here with the editor name and details.</p></div>`;
     return;
   }
   el.innerHTML = `<div class="activity-list">${filtered.map(c => `
-    <article class="activity-item"><div class="activity-avatar">${esc((c.who || "?").slice(0, 1).toUpperCase())}</div>
+    <article class="activity-item"><div class="activity-avatar" aria-hidden="true">${esc((c.who || "?").slice(0, 1).toUpperCase())}</div>
       <div class="activity-body"><strong>${esc(c.who || "Unknown editor")}</strong><p>${esc(c.what || "Updated the tracker")}</p>
         <time>${esc(new Date(c.t).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }))}</time></div>
       <span class="activity-badge">${c.shared ? "Shared" : "Pending"}</span></article>`).join("")}</div>`;
@@ -645,7 +653,7 @@ function renderHotelManagement() {
   const host = $("#hotelManagement");
   if (!host) return;
   if (!st.hotels.length) {
-    host.innerHTML = `<div class="empty-state"><div class="empty-icon">⌂</div><h3>No hotels yet</h3><p>Add a hotel to set the stay dates and daily room bookings.</p></div>`;
+    host.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">⌂</div><h3>No hotels yet</h3><p>Add a hotel to set the stay dates and daily room bookings.</p></div>`;
     return;
   }
   host.innerHTML = `<div class="hotel-admin-list">${st.hotels.map(h => {
@@ -765,7 +773,7 @@ function renderRoomsDesktop() {
   host.innerHTML = st.hotels.map(h => {
     const hs = hotelStatus(h);
     const booked = h.roomsBooked ?? h.totalRooms;
-    const cols = h.nights.map(n => `<th class="num">${esc(wd(n))}</th>`).join("");
+    const cols = h.nights.map(n => `<th scope="col" class="num">${esc(wd(n))}</th>`).join("");
 
     const rows = h.grid.map((row, ri) => {
       const no = h.roomNos[ri] || "";
@@ -795,7 +803,7 @@ function renderRoomsDesktop() {
     }).join("");
 
     const totalRow = (label, fn) => `
-            <tr class="total" data-row="${label}"><td class="sticky-col">${label}</td>
+            <tr class="total" data-row="${label}"><th scope="row" class="sticky-col">${label}</th>
               ${h.nights.map((_, i) => `<td class="num">${fn(i)}</td>`).join("")}</tr>`;
 
     return `<div class="panel">
@@ -813,14 +821,15 @@ function renderRoomsDesktop() {
         <div class="statpills">${statPills(h, hs)}</div>
       </div>
       <div class="sumcards">${sumCards(h, hs)}</div>
-      <div class="table-scroll">
+      <div class="table-scroll" role="region" aria-label="Guest details for ${esc(h.name)}" tabindex="0">
         <table class="grid">
-          <thead><tr><th>Room</th>${cols}<th class="num" title="guest-nights in this room">G-nights</th></tr></thead>
+          <caption class="visually-hidden">Guest details by room and night at ${esc(h.name)}</caption>
+          <thead><tr><th scope="col">Room</th>${cols}<th scope="col" class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
             ${totalRow("Rooms with Guest", i => filledRooms(h, i))}
             ${totalRow("Guests", i => nightGuests(h, i))}
             ${totalRow("3rd guests", i => nightThird(h, i))}
-            <tr class="total" data-row="status"><td class="sticky-col">Status</td>
+            <tr class="total" data-row="status"><th scope="row" class="sticky-col">Status</th>
               ${h.nights.map((_, i) => { const s = nightStatus(h, i);
                 return `<td class="num"><span class="pill ${s.cls}">${esc(s.txt)}</span></td>`; }).join("")}</tr>
           </tbody>
@@ -962,15 +971,15 @@ function renderRoomsMobilePlanner() {
   mDay[h.id] = ni;
   const row = h.grid[ri], cell = row[ni], no = h.roomNos[ri] || "";
   const status = nightStatus(h, ni);
-  const hotelTabs = st.hotels.map(item => `<button type="button" class="mobile-hotel-chip${item.id === h.id ? " active" : ""}" data-mobile-hotel="${item.id}">${esc(item.name)}<small>${hotelStatus(item).roomsInUse}/${item.roomsBooked} rooms</small></button>`).join("");
+  const hotelTabs = st.hotels.map(item => `<button type="button" class="mobile-hotel-chip${item.id === h.id ? " active" : ""}" data-mobile-hotel="${item.id}" aria-pressed="${item.id === h.id}">${esc(item.name)}<small>${hotelStatus(item).roomsInUse}/${item.roomsBooked} rooms</small></button>`).join("");
   const dayTabs = h.nights.map((night, i) => {
     const s = nightStatus(h, i);
-    return `<button type="button" class="mobile-day-chip${i === ni ? " active" : ""}" data-mobile-day="${i}"><strong>${esc(wd(night).slice(0, 3))}</strong><small>${esc(night.slice(0, 6))}</small><em>${s.f}/${s.prebooked}</em></button>`;
+    return `<button type="button" class="mobile-day-chip${i === ni ? " active" : ""}" data-mobile-day="${i}" aria-pressed="${i === ni}"><strong>${esc(wd(night).slice(0, 3))}</strong><small>${esc(night.slice(0, 6))}</small><em>${s.f}/${s.prebooked}</em></button>`;
   }).join("");
   host.innerHTML = `<div class="mobile-planner">
     <div class="mobile-planner-intro"><p class="eyebrow">Guest check-in</p><h2>Build the room list</h2>
       <p>Choose a hotel, date, and room. Then add the guests staying that night.</p></div>
-    <div class="mobile-hotel-tabs" role="tablist">${hotelTabs}</div>
+    <div class="mobile-hotel-tabs" role="group" aria-label="Choose a hotel">${hotelTabs}</div>
     <article class="mobile-stay-card">
       <div class="mobile-stay-head"><div><span class="eyebrow">Selected hotel</span><h3>${esc(h.name)}</h3><p>${esc(h.checkIn)} → ${esc(h.checkOut)}</p></div><span class="stay-progress">${hs.roomsInUse}/${h.roomsBooked}<small>rooms complete</small></span></div>
       <div class="mobile-progress"><span style="width:${Math.min(100, h.roomsBooked ? hs.roomsInUse / h.roomsBooked * 100 : 0)}%"></span></div>
@@ -979,7 +988,7 @@ function renderRoomsMobilePlanner() {
       <div class="mobile-step"><span class="step-number">2</span><div><strong>Choose the room</strong><small>Room ${ri + 1} · ${no ? `hotel room ${esc(no)}` : "number not entered yet"}</small></div></div>
       <div class="mobile-room-tabs">${mobileChips(h)}</div>
       <div class="mobile-guest-editor">
-        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} booked rooms have guest details</p></div><div class="mobile-editor-controls"><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number"></label></div></div>
+        <div class="mobile-editor-head"><div><span class="eyebrow">${esc(wd(h.nights[ni]))} · ${esc(h.nights[ni])}</span><h3>${no ? `Room ${esc(no)}` : `Room ${ri + 1}`}</h3><p>${status.f} of ${status.prebooked} booked rooms have guest details</p></div><div class="mobile-editor-controls"><label>Room number<input class="roomno" type="text" inputmode="numeric" value="${esc(no)}" placeholder="e.g. 204" data-h="${h.id}" data-k="roomNo" data-r="${ri}" aria-label="Hotel room number for ${esc(h.name)}, Room ${ri + 1}"></label></div></div>
         <div class="mobile-guest-fields">${Array.from({ length: SLOTS }, (_, g) => `<label class="mobile-guest-field${g === 2 ? " extra-field" : ""}"><span>${g === 2 ? "Guest 3" : `Guest ${g + 1}`}<small>${g === 2 ? "Optional extra guest" : "Name"}</small></span><input class="ginput" type="text" value="${esc(cell[g])}" placeholder="Enter full name" data-h="${h.id}" data-r="${ri}" data-n="${ni}" data-g="${g}" autocomplete="off" enterkeyhint="${g === SLOTS - 1 ? "done" : "next"}"></label>`).join("")}</div>
         <p class="mobile-save-tip">Changes save on this device as you type. Use <strong>Sync changes</strong> when you are ready to share them with the team.</p>
       </div>
@@ -1019,12 +1028,12 @@ function renderVendors() {
   const host = $("#vendorTable"); if (!host) return;
   host.innerHTML =
     `<thead><tr>${VCOLS.map(([k, l, t, g]) =>
-      `<th class="${t === "number" ? "num " : ""}${g}">${l}</th>`).join("")}<th></th></tr></thead>
+      `<th scope="col" class="${t === "number" ? "num " : ""}${g}">${l}</th>`).join("")}<th scope="col">Actions</th></tr></thead>
      <tbody>${st.vendors.map((v, i) => {
        const s = vendorStatus(v);
        return `<tr>
          <td class="sticky-col g-id" data-label="Vendor"><input class="cell strong" type="text" value="${esc(v.name)}"
-             data-v="${i}" data-f="name" aria-label="Vendor name"></td>
+             data-v="${i}" data-f="name" aria-label="Vendor name for row ${i + 1}"></td>
          ${VCOLS.slice(1).map(([k, l, t, g]) => `<td class="${t === "number" ? "num " : ""}${g}" data-label="${l}">
             <input class="cell" type="${t === "number" ? "number" : "text"}"
                    ${t === "number" ? 'min="0" step="500"' : ""}
@@ -1032,8 +1041,8 @@ function renderVendors() {
                    aria-label="${l} for vendor ${i + 1}"></td>`).join("")}
          <td class="num vstat" data-label="Payment status"><span class="pill ${s.cls}">${s.txt}</span>
              ${s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : ""}</td>
-         <td class="num vendor-remove"><button class="btn row-del" data-del="${i}"
-             title="Remove this vendor" aria-label="Remove vendor ${i + 1}">&times;</button></td>
+         <td class="num vendor-remove"><button type="button" class="btn row-del" data-del="${i}"
+             aria-label="Remove ${esc(v.name || `vendor ${i + 1}`)}">&times;</button></td>
        </tr>`;
      }).join("")}</tbody>`;
   renderVendorSummary();
@@ -1044,26 +1053,28 @@ function renderInvoices() {
   const legacy = Object.entries(st.vendorDetails || {}).map(([name, d]) => {
     let body = "";
     if (d.kind === "invoice") {
-      body = `<div class="table-scroll"><table class="grid">
-        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr></thead>
-        <tbody>${d.items.map(i => `<tr><td>${esc(i[0])}</td><td class="num">${i[1]}</td>
+      body = `<div class="table-scroll invoice-table-scroll invoice-line-items" role="region" aria-label="Invoice details for ${esc(name)}" tabindex="0"><table class="grid">
+        <caption class="visually-hidden">Invoice line items for ${esc(name)}</caption>
+        <thead><tr><th scope="col">Item</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Unit</th><th scope="col" class="num">Total</th></tr></thead>
+        <tbody>${d.items.map(i => `<tr><th scope="row">${esc(i[0])}</th><td class="num">${i[1]}</td>
           <td class="num">${inr(i[2])}</td><td class="num">${inr(i[3])}</td></tr>`).join("")}
-          ${d.totals.map(([k, v]) => `<tr class="total"><td>${esc(k)}</td><td></td><td></td>
+          ${d.totals.map(([k, v]) => `<tr class="total"><th scope="row">${esc(k)}</th><td></td><td></td>
             <td class="num">${inr(v)}</td></tr>`).join("")}</tbody></table></div>
         ${d.terms ? `<p class="caption">${esc(d.terms)}</p>` : ""}
-        ${d.pdf ? `<p class="caption"><a href="${esc(d.pdf)}" target="_blank" rel="noopener">Open the invoice PDF &#8599;</a></p>` : ""}`;
+        ${d.pdf ? `<p class="caption"><a href="${esc(d.pdf)}" target="_blank" rel="noopener">Open the invoice PDF &#8599; <span class="visually-hidden">(opens in a new tab)</span></a></p>` : ""}`;
     } else {
-      body = `<div class="table-scroll"><table class="grid">
+      body = `<div class="table-scroll invoice-table-scroll invoice-hotel-details" role="region" aria-label="Hotel cost details for ${esc(name)}" tabindex="0"><table class="grid">
+        <caption class="visually-hidden">Hotel booking and cost details for ${esc(name)}</caption>
         <tbody>
-          ${d.booking.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
-          ${d.cost.map(([k, v]) => `<tr class="total"><td>${esc(k)}</td><td class="num">${inr(v)}</td></tr>`).join("")}
-          ${d.contact.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+          ${d.booking.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}
+          ${d.cost.map(([k, v]) => `<tr class="total"><th scope="row">${esc(k)}</th><td class="num">${inr(v)}</td></tr>`).join("")}
+          ${d.contact.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}
         </tbody></table></div>`;
     }
     const total = d.totals?.find(([key]) => /grand|total|amount/i.test(key))?.[1]
       ?? d.cost?.find(([key]) => /grand|total|amount/i.test(key))?.[1] ?? "";
     const legacyEdit = d.kind === "invoice" || d.kind === "hotel"
-      ? `<button class="btn small" type="button" data-import-invoice="${esc(name)}">Edit</button>` : "";
+      ? `<button class="btn small" type="button" data-import-invoice="${esc(name)}" aria-label="Edit invoice details for ${esc(name)}">Edit</button>` : "";
     return `<details class="inv legacy-invoice"${d.kind === "invoice" ? " open" : ""}>
       <summary>${esc(d.title || name)}</summary>
       <div class="legacy-invoice-toolbar"><p class="caption">${esc(d.sub || "")}</p>${legacyEdit}</div>${body}
@@ -1078,22 +1089,21 @@ function renderInvoices() {
           <p class="caption">${esc(invoice.vendor || "No vendor")} · ${esc(invoice.number || "No invoice number")}</p></div>
         <div class="invoice-card-actions">
           <strong class="invoice-amount">${invoice.amount === "" || invoice.amount == null ? "—" : inr(invoice.amount)}</strong>
-          <button class="btn small" type="button" data-edit-invoice="${i}">Edit</button>
-          <button class="btn small danger" type="button" data-delete-invoice="${i}">Delete</button>
+          <button class="btn small" type="button" data-edit-invoice="${i}" aria-label="Edit ${esc(invoice.title || "invoice")}">Edit</button>
+          <button class="btn small danger" type="button" data-delete-invoice="${i}" aria-label="Delete ${esc(invoice.title || "invoice")}">Delete</button>
         </div>
       </div>
       <dl class="invoice-meta">
         <div><dt>Date</dt><dd>${esc(invoice.date || "Not set")}</dd></div>
       </dl>
-      <details class="invoice-notes"${invoice.notes ? "" : " disabled"}>
-        <summary>Notes ${invoice.notes ? "· view details" : "· none added"}</summary>
-        <p>${esc(invoice.notes || "No notes yet")}</p>
-      </details>
-      ${invoice.pdf ? `<a class="invoice-link" href="${esc(invoice.pdf)}" target="_blank" rel="noopener">Open invoice link ↗</a>` : ""}
+      ${invoice.notes
+        ? `<details class="invoice-notes"><summary>Notes · view details</summary><p>${esc(invoice.notes)}</p></details>`
+        : `<p class="invoice-no-notes">No notes added.</p>`}
+      ${invoice.pdf ? `<a class="invoice-link" href="${esc(invoice.pdf)}" target="_blank" rel="noopener">Open invoice link ↗ <span class="visually-hidden">(opens in a new tab)</span></a>` : ""}
     </article>`).join("");
   host.innerHTML = (editable || legacy)
     ? `<div class="invoice-list">${editable}</div>${legacy ? `<h3 class="subheading">Imported invoice detail</h3>${legacy}` : ""}`
-    : `<div class="empty-state"><div class="empty-icon">＋</div><h3>No invoices yet</h3><p>Add an invoice to keep notes, amounts, and links available to everyone.</p></div>`;
+    : `<div class="empty-state"><div class="empty-icon" aria-hidden="true">＋</div><h3>No invoices yet</h3><p>Add an invoice to keep notes, amounts, and links available to everyone.</p></div>`;
 }
 
 function importLegacyInvoice(name) {
@@ -1597,7 +1607,11 @@ function wire() {
     const b = e.target.closest(".tab"); if (!b) return;
     $(".mobile-tools")?.removeAttribute("open");
     $(".export-menu")?.removeAttribute("open");
-    $$(".tab").forEach(t => t.classList.toggle("active", t === b));
+    $$(".tab").forEach(t => {
+      t.classList.toggle("active", t === b);
+      if (t === b) t.setAttribute("aria-current", "page");
+      else t.removeAttribute("aria-current");
+    });
     $$(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
   });
   ["#changePerson", "#changeType", "#changeSearch"].forEach(id =>
