@@ -117,3 +117,54 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}h2{font-size:28px;marg
  html{scroll-behavior:auto}
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Desktop guest entry: keep the room/night matrix, but make every editable
+   name field and the hotel summary read as a deliberate planner interface. */
+#hotelPanels .guest-panel{margin-bottom:22px}
+#hotelPanels .guest-panel-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 24px;background:linear-gradient(120deg,var(--surface-alt),var(--surface))}
+#hotelPanels .guest-panel-header h3{margin:0 0 9px;font-size:22px}
+#hotelPanels .meta{display:flex;flex-wrap:wrap;gap:7px}
+#hotelPanels .meta>span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted);font-size:11px}
+#hotelPanels .meta b{color:var(--ink)}
+#hotelPanels .bookedwrap{white-space:nowrap}
+#hotelPanels .booked{width:54px;min-width:0;padding:2px 5px;border:1px solid var(--line);border-radius:6px;background:var(--surface-alt);color:var(--ink);text-align:center;font-weight:700}
+#hotelPanels .statpills{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px;max-width:300px}
+#hotelPanels .sumcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 24px 20px}
+#hotelPanels .sumcard{min-width:0;padding:14px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface-alt)}
+#hotelPanels .sumcard .k{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+#hotelPanels .sumcard .v{margin:3px 0;font-size:24px;font-weight:750;letter-spacing:-.04em}
+#hotelPanels .sumcard .n{color:var(--muted);font-size:11px;line-height:1.4}
+#hotelPanels .sumcard.extra{border-color:color-mix(in srgb,var(--amber) 35%,var(--line));background:var(--amber-bg)}
+#hotelPanels .guest-grid-scroll{border-top:1px solid var(--line);padding:0 14px;scrollbar-color:var(--line) transparent}
+#hotelPanels .guest-grid{min-width:980px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+#hotelPanels .guest-grid th:first-child,#hotelPanels .guest-grid td:first-child{width:128px}
+#hotelPanels .guest-grid th:last-child,#hotelPanels .guest-grid td:last-child{width:82px}
+#hotelPanels .guest-grid thead th{position:sticky;top:0;z-index:1;padding:12px 8px;background:var(--surface-alt);text-align:center}
+#hotelPanels .guest-grid thead th:first-child{text-align:left}
+#hotelPanels .guest-grid tbody td,#hotelPanels .guest-grid tbody th{padding:8px;border-top:1px solid var(--line);vertical-align:middle}
+#hotelPanels .guest-grid tbody tr:not(.total):nth-child(even){background:color-mix(in srgb,var(--surface-alt) 55%,transparent)}
+#hotelPanels .guest-grid tbody tr.unbooked{opacity:.55}
+#hotelPanels .guest-grid .roomlab{display:grid;gap:4px}
+#hotelPanels .guest-grid .roomno{width:100%;min-width:0;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:700}
+#hotelPanels .guest-grid .rn{color:var(--muted);font-size:10px}
+#hotelPanels .guest-grid .gcell{display:grid;gap:5px}
+#hotelPanels .guest-grid .gcell input{min-width:0;min-height:32px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px}
+#hotelPanels .guest-grid .gcell input::placeholder{color:var(--muted);opacity:.8}
+#hotelPanels .guest-grid .gcell input:focus,#hotelPanels .guest-grid .roomno:focus{border-color:var(--brand);outline:3px solid color-mix(in srgb,var(--brand) 16%,transparent);background:var(--surface)}
+#hotelPanels .guest-grid td.filled{background:color-mix(in srgb,var(--green-bg) 45%,transparent)}
+#hotelPanels .guest-grid .gcell.has-third input:last-child{border-color:color-mix(in srgb,var(--amber) 48%,var(--line));background:var(--amber-bg)}
+#hotelPanels .guest-grid .rtot{font-weight:750;color:var(--brand)}
+#hotelPanels .guest-grid tr.total th,#hotelPanels .guest-grid tr.total td{background:var(--surface-alt);font-size:11px;font-weight:700}
+#hotelPanels .guest-grid tr[data-row="status"] td{white-space:nowrap}
+#hotelPanels .guest-panel>.notes{margin:0;padding:14px 24px 18px;color:var(--muted);font-size:12px}
+@media(max-width:900px){
+  #hotelPanels .guest-panel-header{display:grid;padding:18px}
+  #hotelPanels .statpills{justify-content:flex-start;max-width:none}
+  #hotelPanels .sumcards{padding:0 18px 16px}
+}
+@media(max-width:680px){
+  #hotelPanels .sumcards{grid-template-columns:1fr}
+}
+.invoice-vendor-meta{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+.invoice-vendor-fields{min-width:0;padding:14px;border:1px solid var(--line);border-radius:12px}
+.invoice-vendor-fields legend{padding:0 7px;color:var(--brand);font-size:12px;font-weight:750}

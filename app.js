@@ -91,6 +91,15 @@ async function loadData() {
 // person the hotel bills on top of the room rate.
 const SLOTS = 3;
 
+function ensureVendorId(v, index) {
+  if (!v.vendorId) {
+    const position = index ?? st?.vendors?.indexOf(v) ?? 0;
+    const name = String(v.name || "vendor").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    v.vendorId = v.row != null ? `vendor-row-${v.row}` : `vendor-legacy-${position}-${name}`;
+  }
+  return v.vendorId;
+}
+
 // Exports from before this feature (and any browser snapshot saved then) lack
 // rooms-booked, room numbers and the third guest slot. Normalise once so the
 // rest of the app can assume a single shape.
@@ -114,7 +123,8 @@ function normalize(d) {
       h.grid.push(Array.from({ length: nights.length }, () => Array(SLOTS).fill("")));
     h.grid = h.grid.slice(0, h.totalRooms);
   }
-  d.vendors = d.vendors || [];
+  d.vendors = Array.isArray(d.vendors) ? d.vendors : [];
+  d.vendors.forEach(ensureVendorId);
   return d;
 }
 
@@ -641,6 +651,7 @@ function renderChanges() {
 
 /* -------------------------------------------------------------------- render */
 function renderAll() {
+  ensureVendorInvoices();
   renderOverview();
   renderHotelManagement();
   renderRooms();          // both the desktop grid and the phone sheet
@@ -806,8 +817,8 @@ function renderRoomsDesktop() {
             <tr class="total" data-row="${label}"><th scope="row" class="sticky-col">${label}</th>
               ${h.nights.map((_, i) => `<td class="num">${fn(i)}</td>`).join("")}</tr>`;
 
-    return `<div class="panel">
-      <div class="panel-h">
+    return `<div class="panel guest-panel">
+      <div class="panel-h guest-panel-header">
         <div><h3>${esc(h.name)}</h3>
           <div class="meta">
             <span>Check-in <b>${esc(h.checkIn)}</b></span>
@@ -821,8 +832,8 @@ function renderRoomsDesktop() {
         <div class="statpills">${statPills(h, hs)}</div>
       </div>
       <div class="sumcards">${sumCards(h, hs)}</div>
-      <div class="table-scroll" role="region" aria-label="Guest details for ${esc(h.name)}" tabindex="0">
-        <table class="grid">
+      <div class="table-scroll guest-grid-scroll" role="region" aria-label="Guest details for ${esc(h.name)}" tabindex="0">
+        <table class="grid guest-grid">
           <caption class="visually-hidden">Guest details by room and night at ${esc(h.name)}</caption>
           <thead><tr><th scope="col">Room</th>${cols}<th scope="col" class="num" title="guest-nights in this room">G-nights</th></tr></thead>
           <tbody>${rows}
@@ -1086,7 +1097,7 @@ function renderInvoices() {
       <div class="invoice-card-head">
         <div><p class="eyebrow">${esc(invoice.status || "Unpaid")}</p>
           <h3>${esc(invoice.title || "Untitled invoice")}</h3>
-          <p class="caption">${esc(invoice.vendor || "No vendor")} · ${esc(invoice.number || "No invoice number")}</p></div>
+          <p class="caption">${esc(invoice.vendor || "No vendor")} · ${esc(invoice.number || "No invoice number")}${invoice.sourceVendorId ? " · Linked vendor" : ""}</p></div>
         <div class="invoice-card-actions">
           <strong class="invoice-amount">${invoice.amount === "" || invoice.amount == null ? "—" : inr(invoice.amount)}</strong>
           <button class="btn small" type="button" data-edit-invoice="${i}" aria-label="Edit ${esc(invoice.title || "invoice")}">Edit</button>
@@ -1096,6 +1107,7 @@ function renderInvoices() {
       <dl class="invoice-meta">
         <div><dt>Date</dt><dd>${esc(invoice.date || "Not set")}</dd></div>
       </dl>
+      ${invoice.vendorInfo ? renderLinkedVendorInfo(invoice.vendorInfo) : ""}
       ${invoice.notes
         ? `<details class="invoice-notes"><summary>Notes · view details</summary><p>${esc(invoice.notes)}</p></details>`
         : `<p class="invoice-no-notes">No notes added.</p>`}
@@ -1104,6 +1116,148 @@ function renderInvoices() {
   host.innerHTML = (editable || legacy)
     ? `<div class="invoice-list">${editable}</div>${legacy ? `<h3 class="subheading">Imported invoice detail</h3>${legacy}` : ""}`
     : `<div class="empty-state"><div class="empty-icon" aria-hidden="true">＋</div><h3>No invoices yet</h3><p>Add an invoice to keep notes, amounts, and links available to everyone.</p></div>`;
+}
+
+function renderLinkedVendorInfo(info) {
+  const fields = [
+    ["Contact", info.contact], ["Phone", info.phone], ["WhatsApp", info.whatsapp],
+    ["Event", info.event], ["Event date", info.eventDate],
+    ["Payment mode", info.paymentMode], ["Reference", info.ref], ["Paid on", info.paidOn],
+    ["Address", info.address], ["Quoted", info.quoted], ["Paid", info.paid],
+  ].filter(([, value]) => value !== "" && value != null);
+  if (!fields.length) return "";
+  return `<dl class="invoice-meta invoice-vendor-meta">${fields.map(([label, value]) =>
+    `<div><dt>${label}</dt><dd>${label === "Quoted" || label === "Paid" ? inr(value) : esc(value)}</dd></div>`
+  ).join("")}</dl>`;
+}
+
+function vendorInvoiceInfo(v) {
+  return {
+    contact: v.contact || "", phone: v.phone || "", whatsapp: v.whatsapp || "",
+    event: v.event || "", eventDate: v.eventDate || "",
+    paymentMode: v.paymentMode || "", ref: v.ref || "", paidOn: v.paidOn || "",
+    address: v.address || "", quoted: v.quoted ?? "", paid: v.paid ?? "",
+  };
+}
+
+function linkInvoiceToVendor(invoice, v) {
+  ensureVendorId(v);
+  invoice.sourceVendorId = v.vendorId;
+  invoice.vendor = String(v.name || "").trim();
+  const oldInfo = invoice.vendorInfo || {};
+  for (const key of ["contact", "phone", "whatsapp", "event", "eventDate",
+    "paymentMode", "ref", "paidOn", "address"]) {
+    if (!v[key] && oldInfo[key]) v[key] = oldInfo[key];
+  }
+  if (v.quoted === "" || v.quoted == null) v.quoted = invoice.amount ?? "";
+  invoice.amount = v.quoted ?? "";
+  if (v.paid === "" || v.paid == null) v.paid = invoice.paid ?? "";
+  invoice.paid = v.paid ?? "";
+  const notes = [...new Set([v.notes, invoice.notes].map(value => String(value || "").trim()).filter(Boolean))]
+    .join("\n\n");
+  v.notes = notes;
+  invoice.notes = notes;
+  invoice.sourceVendorTitle = invoice.title === `${invoice.vendor} invoice` ? invoice.title : null;
+  invoice.sourceVendorAmount = invoice.amount;
+  const paid = Number(v.paid) || 0, amount = Number(v.quoted) || 0;
+  invoice.status = amount > 0 && paid >= amount ? "Paid" : paid > 0 ? "Part-paid" : "Unpaid";
+  invoice.sourceVendorStatus = invoice.status;
+  invoice.sourceVendorNotes = invoice.notes || "";
+  invoice.vendorInfo = vendorInvoiceInfo(v);
+  v.invoiceDeleted = false;
+}
+
+function ensureVendorInvoices() {
+  const invoices = st.invoices || (st.invoices = []);
+  let changed = false;
+  for (const v of st.vendors) {
+    ensureVendorId(v);
+    if (!String(v.name || "").trim() || v.invoiceDeleted) continue;
+    if (invoices.some(invoice => invoice.sourceVendorId === v.vendorId)) continue;
+    const existing = invoices.find(invoice =>
+      !invoice.sourceVendorId
+      && String(invoice.vendor || "").trim().toLocaleLowerCase()
+        === String(v.name).trim().toLocaleLowerCase());
+    if (existing) {
+      linkInvoiceToVendor(existing, v);
+      changed = true;
+    } else if (createVendorInvoice(v)) {
+      changed = true;
+    }
+  }
+  if (changed) {
+    recordChange("Created or linked invoices for existing vendors");
+    save();
+  }
+}
+
+function createVendorInvoice(v) {
+  const name = String(v.name || "").trim();
+  if (!name) return false;
+  if (!v.vendorId) v.vendorId = `vendor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const invoices = st.invoices || (st.invoices = []);
+  const amount = v.quoted ?? "";
+  const paid = Number(v.paid) || 0;
+  const status = amount !== "" && Number(amount) > 0 && paid >= Number(amount) ? "Paid"
+    : paid > 0 ? "Part-paid" : "Unpaid";
+  const invoice = {
+    id: `invoice-${v.vendorId}`,
+    sourceVendorId: v.vendorId,
+    sourceVendorTitle: `${name} invoice`,
+    sourceVendorAmount: amount,
+    sourceVendorStatus: status,
+    sourceVendorNotes: v.notes || "",
+    title: `${name} invoice`,
+    vendor: name,
+    number: "",
+    date: "",
+    amount,
+    paid: v.paid ?? "",
+    status,
+    pdf: "",
+    notes: v.notes || "",
+    vendorInfo: vendorInvoiceInfo(v),
+  };
+  invoices.push(invoice);
+  return true;
+}
+
+function syncVendorInvoice(v) {
+  const name = String(v.name || "").trim();
+  ensureVendorId(v);
+  const invoices = st.invoices || (st.invoices = []);
+  let invoice = invoices.find(item => item.sourceVendorId === v.vendorId);
+  if (!invoice) {
+    if (!name) return false;
+    if (v.invoiceDeleted) return false;
+    if (!v.isNew) return false;
+    createVendorInvoice(v);
+    recordChange(`Created an invoice for new vendor "${name}"`);
+    return true;
+  }
+  if (invoice.vendor !== name) invoice.vendor = name;
+  if (invoice.title === invoice.sourceVendorTitle) {
+    invoice.title = name ? `${name} invoice` : "Vendor invoice";
+    invoice.sourceVendorTitle = invoice.title;
+  }
+  if (invoice.amount === invoice.sourceVendorAmount) {
+    invoice.amount = v.quoted ?? "";
+    invoice.sourceVendorAmount = invoice.amount;
+  }
+  const paid = Number(v.paid) || 0;
+  const amount = Number(v.quoted) || 0;
+  const status = amount > 0 && paid >= amount ? "Paid" : paid > 0 ? "Part-paid" : "Unpaid";
+  if (invoice.status === invoice.sourceVendorStatus) {
+    invoice.status = status;
+    invoice.sourceVendorStatus = status;
+  }
+  if (invoice.notes === invoice.sourceVendorNotes) {
+    invoice.notes = v.notes || "";
+    invoice.sourceVendorNotes = invoice.notes;
+  }
+  invoice.paid = v.paid ?? "";
+  invoice.vendorInfo = vendorInvoiceInfo(v);
+  return true;
 }
 
 function importLegacyInvoice(name) {
@@ -1157,11 +1311,18 @@ function editInvoice(index) {
   const invoice = index >= 0 ? st.invoices[index] : null;
   const form = $("#invoiceForm"); if (!form) return;
   form.hidden = false; form.dataset.editIndex = index >= 0 ? String(index) : "";
+  const info = invoice?.vendorInfo || {};
   for (const [id, key] of [["invoiceTitle", "title"], ["invoiceVendor", "vendor"],
     ["invoiceNumber", "number"], ["invoiceDate", "date"], ["invoiceAmount", "amount"],
-    ["invoiceStatus", "status"], ["invoicePdf", "pdf"], ["invoiceNotes", "notes"]]) {
-    const el = $(`#${id}`); if (el) el.value = invoice?.[key] ?? "";
+    ["invoicePaid", "paid"], ["invoiceStatus", "status"], ["invoicePdf", "pdf"],
+    ["invoiceNotes", "notes"], ["invoiceContact", "contact"], ["invoicePhone", "phone"],
+    ["invoiceWhatsapp", "whatsapp"], ["invoiceEvent", "event"], ["invoiceEventDate", "eventDate"],
+    ["invoicePaymentMode", "paymentMode"], ["invoiceRef", "ref"], ["invoicePaidOn", "paidOn"],
+    ["invoiceAddress", "address"]]) {
+    const el = $(`#${id}`);
+    if (el) el.value = invoice?.[key] ?? info[key] ?? "";
   }
+  form.dataset.originalStatus = invoice?.status || "Unpaid";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
   $("#invoiceTitle")?.focus();
 }
@@ -1169,13 +1330,76 @@ function addOrUpdateInvoice(event) {
   event.preventDefault();
   const title = $("#invoiceTitle").value.trim();
   if (!title) { $("#invoiceFormError").textContent = "Add an invoice title."; return; }
-  const fields = { title, vendor: $("#invoiceVendor").value.trim(), number: $("#invoiceNumber").value.trim(),
-    date: $("#invoiceDate").value, amount: $("#invoiceAmount").value, status: $("#invoiceStatus").value,
-    pdf: $("#invoicePdf").value.trim(), notes: $("#invoiceNotes").value.trim() };
+  const fields = {
+    title, vendor: $("#invoiceVendor").value.trim(), number: $("#invoiceNumber").value.trim(),
+    date: $("#invoiceDate").value, amount: $("#invoiceAmount").value, paid: $("#invoicePaid").value,
+    status: $("#invoiceStatus").value, pdf: $("#invoicePdf").value.trim(),
+    notes: $("#invoiceNotes").value.trim(),
+    contact: $("#invoiceContact").value.trim(), phone: $("#invoicePhone").value.trim(),
+    whatsapp: $("#invoiceWhatsapp").value.trim(), event: $("#invoiceEvent").value.trim(),
+    eventDate: $("#invoiceEventDate").value.trim(), paymentMode: $("#invoicePaymentMode").value.trim(),
+    ref: $("#invoiceRef").value.trim(), paidOn: $("#invoicePaidOn").value.trim(),
+    address: $("#invoiceAddress").value.trim(),
+  };
   const index = Number($("#invoiceForm").dataset.editIndex);
   const editing = Number.isInteger(index) && index >= 0;
-  if (editing) { st.invoices[index] = { ...st.invoices[index], ...fields }; recordChange(`Updated invoice "${title}"`); }
-  else { st.invoices.push({ id: `invoice-${Date.now()}`, ...fields }); recordChange(`Added invoice "${title}"`); }
+  const previous = editing ? st.invoices[index] : null;
+  const vendor = previous?.sourceVendorId
+    ? st.vendors.find(item => item.vendorId === previous.sourceVendorId)
+    : st.vendors.find(item => String(item.name || "").trim().toLocaleLowerCase()
+      === fields.vendor.toLocaleLowerCase());
+  if (vendor) {
+    const statusChanged = fields.status !== (previous?.status || "Unpaid");
+    const paid = Number(fields.paid) || 0;
+    const amount = Number(fields.amount) || 0;
+    if (statusChanged && fields.status === "Paid" && amount <= 0) {
+      $("#invoiceFormError").textContent = "Enter a quoted amount before marking the invoice paid.";
+      return;
+    }
+    if (statusChanged && fields.status === "Paid") fields.paid = fields.amount;
+    else if (statusChanged && fields.status === "Unpaid") fields.paid = "0";
+    else if (statusChanged && fields.status === "Part-paid"
+      && (paid <= 0 || (amount > 0 && paid >= amount))) {
+      $("#invoiceFormError").textContent = "Enter an amount paid that is greater than zero and less than the quoted amount for a part-paid invoice.";
+      return;
+    }
+    vendor.name = fields.vendor;
+    vendor.contact = fields.contact;
+    vendor.phone = fields.phone;
+    vendor.whatsapp = fields.whatsapp;
+    vendor.event = fields.event;
+    vendor.eventDate = fields.eventDate;
+    vendor.quoted = fields.amount;
+    vendor.paid = fields.paid;
+    vendor.paymentMode = fields.paymentMode;
+    vendor.ref = fields.ref;
+    vendor.paidOn = fields.paidOn;
+    vendor.address = fields.address;
+    vendor.notes = fields.notes;
+    vendor.invoiceDeleted = false;
+    fields.sourceVendorId = vendor.vendorId;
+    fields.vendorInfo = vendorInvoiceInfo(vendor);
+    fields.sourceVendorTitle = previous?.sourceVendorTitle ?? null;
+    if (previous?.sourceVendorTitle && previous.title === previous.sourceVendorTitle) {
+      fields.title = fields.vendor ? `${fields.vendor} invoice` : "Vendor invoice";
+      fields.sourceVendorTitle = fields.title;
+    }
+    fields.sourceVendorAmount = fields.amount;
+    fields.sourceVendorNotes = fields.notes;
+    fields.sourceVendorStatus = fields.status;
+    if (!statusChanged) {
+      const paidNow = Number(fields.paid) || 0;
+      fields.status = amount > 0 && paidNow >= amount ? "Paid" : paidNow > 0 ? "Part-paid" : "Unpaid";
+      fields.sourceVendorStatus = fields.status;
+    }
+  }
+  if (editing) {
+    st.invoices[index] = { ...previous, ...fields };
+    recordChange(vendor ? `Updated invoice and vendor "${vendor.name}"` : `Updated invoice "${title}"`);
+  } else {
+    st.invoices.push({ id: `invoice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...fields });
+    recordChange(vendor ? `Added invoice for vendor "${vendor.name}"` : `Added invoice "${title}"`);
+  }
   save(); resetInvoiceForm(); renderAll(); flash(editing ? "Invoice updated" : "Invoice added");
 }
 
@@ -1247,17 +1471,49 @@ function renderVendorSummary() {
 
 function addVendor() {
   st.vendors.push({
+    vendorId: `vendor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "", contact: "", phone: "", whatsapp: "", event: "", eventDate: "",
     quoted: "", paid: "", paymentMode: "", ref: "", paidOn: "",
     address: "", notes: "", row: null, isNew: true,
   });
-  save(); renderAll();
   recordChange("Added a new vendor row");
+  save(); renderAll();
   const rows = $$("#vendorTable tbody tr");
   const last = rows[rows.length - 1];
   last?.querySelector("input")?.focus();
   last?.scrollIntoView({ block: "center", behavior: "smooth" });
   flash("New vendor row added");
+}
+
+function deleteVendor(index) {
+  const v = st.vendors[index];
+  if (!v || !confirm(`Remove "${(v.name || "untitled").trim()}" and its linked invoice, if any? This cannot be undone.`)) return false;
+  const name = (v.name || "untitled").trim();
+  const linked = st.invoices.filter(invoice => invoice.sourceVendorId === v.vendorId);
+  st.invoices = st.invoices.filter(invoice => invoice.sourceVendorId !== v.vendorId);
+  st.vendors.splice(index, 1);
+  recordChange(`Removed vendor "${name}"`);
+  if (linked.length) recordChange(`Removed ${linked.length} linked invoice${linked.length === 1 ? "" : "s"} for "${name}"`);
+  save(); renderAll(); flash(linked.length ? "Vendor and linked invoice removed" : "Vendor removed");
+  return true;
+}
+
+function deleteInvoice(index) {
+  const invoice = st.invoices[index];
+  if (!invoice) return false;
+  const linkedVendor = invoice.sourceVendorId
+    ? st.vendors.find(v => v.vendorId === invoice.sourceVendorId) : null;
+  const name = invoice.title || "Untitled invoice";
+  if (!confirm(linkedVendor
+    ? `Delete "${name}"? The vendor record will remain.`
+    : `Delete "${name}"?`)) return false;
+  if (linkedVendor) linkedVendor.invoiceDeleted = true;
+  st.invoices.splice(index, 1);
+  recordChange(linkedVendor
+    ? `Deleted invoice for "${linkedVendor.name}" (vendor record retained)`
+    : `Deleted invoice "${name}"`);
+  save(); renderAll(); flash("Invoice deleted");
+  return true;
 }
 
 // last value seen per editable cell, so the change log shows old -> new
@@ -1451,6 +1707,7 @@ function onEditInput(t) {
   if (t.matches("input.cell")) {
     const i = +t.dataset.v, f = t.dataset.f;
     st.vendors[i][f] = VNUM.has(f) ? (t.value === "" ? "" : Number(t.value)) : t.value;
+    if (syncVendorInvoice(st.vendors[i])) renderInvoices();
     save(); renderOverview(); refreshVendorRow(i);
   }
 }
@@ -1580,11 +1837,7 @@ function wire() {
   $("#vendorTable").addEventListener("click", e => {
     const b = e.target.closest("[data-del]");
     if (!b) return;
-    const v = st.vendors[+b.dataset.del];
-    if (!confirm(`Remove "${(v.name || "untitled").trim()}" from the vendor list?`)) return;
-    st.vendors.splice(+b.dataset.del, 1);
-    save(); renderAll(); flash("Vendor removed");
-    recordChange(`Removed vendor "${(v.name || "untitled").trim()}"`);
+    deleteVendor(+b.dataset.del);
   });
 
   $("#btnAddVendor").onclick = addVendor;
@@ -1598,10 +1851,7 @@ function wire() {
     if (edit) { editInvoice(+edit.dataset.editInvoice); return; }
     const remove = e.target.closest("[data-delete-invoice]");
     if (!remove) return;
-    const invoice = st.invoices[+remove.dataset.deleteInvoice];
-    if (!invoice || !confirm(`Delete "${invoice.title || "this invoice"}"?`)) return;
-    st.invoices.splice(+remove.dataset.deleteInvoice, 1);
-    save(); renderAll(); recordChange(`Deleted invoice "${invoice.title || "Untitled invoice"}"`); flash("Invoice deleted");
+    deleteInvoice(+remove.dataset.deleteInvoice);
   });
   $("#tabs").addEventListener("click", e => {
     const b = e.target.closest(".tab"); if (!b) return;
