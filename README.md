@@ -63,10 +63,17 @@ setting. Use **Hotels** to add or delete hotel bookings, change check-in and
 check-out dates, add individual dates, or adjust the booked-room count for each
 night. Deleting a hotel also deletes its booking and guest details after
 confirmation. Use **Guests** to enter names separately by hotel, date, and room;
-choose a room chip to show only that room's guest fields, then enter its actual
-hotel-assigned room number in the labeled box. After a successful sync, the
-Excel backup creates a worksheet for an added hotel and includes its nightly
-bookings and guest names.
+desktop uses a styled room-by-night grid, while phones use a guided one-room
+flow. On phones, choose a room chip to show only that room's guest fields, then
+enter its actual hotel-assigned room number in the labeled box. After a
+successful sync, the Excel backup creates a worksheet for an added hotel and
+includes its nightly bookings and guest names.
+
+Every named vendor has a linked invoice. Existing vendor rows are linked or
+backfilled automatically; adding a vendor and entering its name creates the
+invoice. Contact, event, payment, address, quote, paid amount, and notes fields
+stay in sync in either tab. Deleting a vendor also deletes its linked invoice;
+deleting only an invoice leaves the vendor row in place.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.
