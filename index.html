@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=41">
+<link rel="stylesheet" href="styles.css?v=45">
 </head>
 <body>
 
@@ -197,13 +197,17 @@
 
   <!-- ============================================================= VENDORS -->
   <section id="view-vendors" class="view" hidden>
-    <h2>Vendors &amp; payments</h2>
-    <p class="hint"><strong>Tap any field to edit.</strong> Sync to share your changes.</p>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">People &amp; payments</p>
+        <h2>Vendors &amp; payments</h2>
+        <p class="hint"><strong>Tap any field to edit.</strong> Changes save on this device; sync when you are ready to share.</p>
+      </div>
+      <button id="btnAddVendor" class="btn primary" type="button">+ Add vendor</button>
+    </div>
+    <div id="vendorCards" class="vendor-card-list mobile-only"></div>
     <div class="table-scroll vendor-scroll" role="region" aria-label="Vendor payment details" tabindex="0">
       <table class="grid" id="vendorTable"></table>
-    </div>
-    <div class="vendor-actions">
-      <button id="btnAddVendor" class="btn">+ Add vendor</button>
     </div>
     <h2>Summary</h2>
     <div class="cards" id="vendorSummary"></div>
@@ -231,20 +235,22 @@
         <label>Status
           <select id="invoiceStatus"><option>Unpaid</option><option>Part-paid</option><option>Paid</option></select>
         </label>
-        <fieldset class="invoice-vendor-fields span-2">
-          <legend>Vendor details · synced with Vendors &amp; Payments</legend>
-          <div class="invoice-form-grid">
-            <label>Contact <input id="invoiceContact" maxlength="120"></label>
-            <label>Phone <input id="invoicePhone" type="tel" maxlength="40"></label>
-            <label>WhatsApp <input id="invoiceWhatsapp" maxlength="40"></label>
-            <label>Event <input id="invoiceEvent" maxlength="120"></label>
-            <label>Event date <input id="invoiceEventDate" maxlength="40"></label>
-            <label>Payment mode <input id="invoicePaymentMode" maxlength="60"></label>
-            <label>Payment reference <input id="invoiceRef" maxlength="100"></label>
-            <label>Paid on <input id="invoicePaidOn" maxlength="40"></label>
-            <label class="span-2">Address <input id="invoiceAddress" maxlength="240"></label>
-          </div>
-        </fieldset>
+        <details id="invoiceVendorDetails" class="invoice-vendor-disclosure span-2">
+          <summary><span>Vendor details</span><small>Optional · synced with Vendors &amp; Payments</small></summary>
+          <fieldset class="invoice-vendor-fields">
+            <div class="invoice-form-grid">
+              <label>Contact <input id="invoiceContact" maxlength="120"></label>
+              <label>Phone <input id="invoicePhone" type="tel" maxlength="40" autocomplete="tel"></label>
+              <label>WhatsApp <input id="invoiceWhatsapp" type="tel" maxlength="40" autocomplete="tel"></label>
+              <label>Event <input id="invoiceEvent" maxlength="120"></label>
+              <label>Event date <input id="invoiceEventDate" maxlength="40"></label>
+              <label>Payment mode <input id="invoicePaymentMode" maxlength="60"></label>
+              <label>Payment reference <input id="invoiceRef" maxlength="100"></label>
+              <label>Paid on <input id="invoicePaidOn" maxlength="40"></label>
+              <label class="span-2">Address <input id="invoiceAddress" maxlength="240"></label>
+            </div>
+          </fieldset>
+        </details>
         <label class="span-2">Invoice link <input id="invoicePdf" type="url" placeholder="https://…"></label>
         <label class="span-2">Notes <textarea id="invoiceNotes" rows="3" maxlength="2000"
           placeholder="Add context, line items, due dates, or follow-up notes"></textarea></label>
@@ -286,7 +292,7 @@
 <script src="realtime-config.js?v=38"></script>
 <script src="auth.js?v=38"></script>
 <script src="sync.js?v=38"></script>
-<script src="realtime.js?v=38"></script>
-<script src="app.js?v=41"></script>
+<script src="realtime.js?v=39"></script>
+<script src="app.js?v=46"></script>
 </body>
 </html>

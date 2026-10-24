@@ -642,9 +642,15 @@ function renderChanges() {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">✓</div><h3>${log.length ? "No matching activity" : "No activity yet"}</h3><p>Synced changes will appear here with the editor name and details.</p></div>`;
     return;
   }
+  const changeDetails = c => Array.isArray(c.changes) && c.changes.length
+    ? c.changes
+    : String(c.what || "Updated the tracker").split(" · ").filter(Boolean);
   el.innerHTML = `<div class="activity-list">${filtered.map(c => `
     <article class="activity-item"><div class="activity-avatar" aria-hidden="true">${esc((c.who || "?").slice(0, 1).toUpperCase())}</div>
-      <div class="activity-body"><strong>${esc(c.who || "Unknown editor")}</strong><p>${esc(c.what || "Updated the tracker")}</p>
+      <div class="activity-body"><strong>${esc(c.who || "Unknown editor")}</strong>
+        ${changeDetails(c).length > 1
+          ? `<ul class="activity-details">${changeDetails(c).map(detail => `<li>${esc(detail)}</li>`).join("")}</ul>`
+          : `<p>${esc(changeDetails(c)[0])}</p>`}
         <time>${esc(new Date(c.t).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }))}</time></div>
       <span class="activity-badge">${c.shared ? "Shared" : "Pending"}</span></article>`).join("")}</div>`;
 }
@@ -716,8 +722,8 @@ function renderOverview() {
     roomsInUse += h.grid.filter(row => row.some(cell => cell.some(Boolean))).length;
   }
 
-  const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
-  const p = st.vendors.reduce((a, v) => a + (v.paid  || 0), 0);
+  const q = st.vendors.reduce((a, v) => a + (Number(v.quoted) || 0), 0);
+  const p = st.vendors.reduce((a, v) => a + (Number(v.paid) || 0), 0);
   const pend = st.vendors.filter(v => vendorStatus(v).cls === "warn").length;
 
   $("#overviewCards").innerHTML = [
@@ -1056,6 +1062,59 @@ function renderVendors() {
              aria-label="Remove ${esc(v.name || `vendor ${i + 1}`)}">&times;</button></td>
        </tr>`;
      }).join("")}</tbody>`;
+  const cards = $("#vendorCards");
+  if (cards) cards.innerHTML = st.vendors.length
+    ? st.vendors.map((v, i) => {
+      const status = vendorStatus(v);
+      const amount = Number(v.quoted) || 0;
+      const paid = Number(v.paid) || 0;
+      const balance = Math.max(0, amount - paid);
+      const renderField = (key, label, type = "text") => `
+        <label class="vendor-field${key === "paymentMode" ? " vendor-payment-mode" : ""}${["address", "notes"].includes(key) ? " vendor-field-wide" : ""}">
+          <span>${label}</span>
+          <input class="cell${key === "name" ? " strong" : ""}" type="${type}"
+            ${type === "number" ? 'min="0" step="500" inputmode="decimal"' : ""}
+            enterkeyhint="${key === "notes" ? "done" : "next"}"
+            ${key === "phone" || key === "whatsapp" ? 'autocomplete="tel"' : ""}
+            value="${esc(v[key] ?? "")}" data-v="${i}" data-f="${key}"
+            aria-label="${label} for vendor ${i + 1}">
+        </label>`;
+      return `<article class="vendor-card">
+        <header class="vendor-card-head">
+          <div class="vendor-name-field">${renderField("name", "Vendor name")}</div>
+          <div class="vendor-card-actions">
+            <span class="pill vendor-card-status ${status.cls}">${esc(status.txt)}</span>
+            <button type="button" class="btn small row-del" data-del="${i}"
+              aria-label="Remove ${esc(v.name || `vendor ${i + 1}`)}">&times;</button>
+          </div>
+        </header>
+        <section class="vendor-payment-panel" aria-label="Payment amounts">
+          <div class="vendor-payment-fields">
+            ${renderField("quoted", "Quoted amount", "number")}
+            ${renderField("paid", "Amount paid", "number")}
+          </div>
+          <p class="vendor-balance"><span>Balance remaining</span><strong class="vendor-balance-value">${inr(balance)}</strong></p>
+        </section>
+        <div class="vendor-card-fields">
+          ${renderField("event", "Event")}
+          ${renderField("eventDate", "Event date")}
+          ${renderField("paymentMode", "Payment mode")}
+          ${renderField("ref", "UTR / reference")}
+          ${renderField("paidOn", "Paid on")}
+        </div>
+        <details class="vendor-card-more">
+          <summary>Contact &amp; additional details</summary>
+          <div class="vendor-card-fields">
+            ${renderField("contact", "Contact person")}
+            ${renderField("phone", "Phone", "tel")}
+            ${renderField("whatsapp", "WhatsApp", "tel")}
+            ${renderField("address", "Address")}
+            ${renderField("notes", "Notes")}
+          </div>
+        </details>
+      </article>`;
+    }).join("")
+    : `<div class="empty-state"><div class="empty-icon" aria-hidden="true">＋</div><h3>No vendors yet</h3><p>Add a vendor to start tracking quotes, payments, and balances.</p></div>`;
   renderVendorSummary();
 }
 
@@ -1305,6 +1364,7 @@ function resetInvoiceForm() {
   const form = $("#invoiceForm");
   form?.reset();
   if (form) { form.hidden = true; delete form.dataset.editIndex; }
+  $("#invoiceVendorDetails").open = false;
   $("#invoiceFormError").textContent = "";
 }
 function editInvoice(index) {
@@ -1322,6 +1382,8 @@ function editInvoice(index) {
     const el = $(`#${id}`);
     if (el) el.value = invoice?.[key] ?? info[key] ?? "";
   }
+  $("#invoiceVendorDetails").open = Boolean(invoice
+    && (invoice.vendorInfo || invoice.sourceVendorId || invoice.sourceDetail));
   form.dataset.originalStatus = invoice?.status || "Unpaid";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
   $("#invoiceTitle")?.focus();
@@ -1349,6 +1411,12 @@ function addOrUpdateInvoice(event) {
     : st.vendors.find(item => String(item.name || "").trim().toLocaleLowerCase()
       === fields.vendor.toLocaleLowerCase());
   if (vendor) {
+    const vendorDetails = $("#invoiceVendorDetails").open ? fields : {
+      contact: vendor.contact ?? "", phone: vendor.phone ?? "", whatsapp: vendor.whatsapp ?? "",
+      event: vendor.event ?? "", eventDate: vendor.eventDate ?? "",
+      paymentMode: vendor.paymentMode ?? "", ref: vendor.ref ?? "",
+      paidOn: vendor.paidOn ?? "", address: vendor.address ?? "", notes: vendor.notes ?? "",
+    };
     const statusChanged = fields.status !== (previous?.status || "Unpaid");
     const paid = Number(fields.paid) || 0;
     const amount = Number(fields.amount) || 0;
@@ -1364,18 +1432,18 @@ function addOrUpdateInvoice(event) {
       return;
     }
     vendor.name = fields.vendor;
-    vendor.contact = fields.contact;
-    vendor.phone = fields.phone;
-    vendor.whatsapp = fields.whatsapp;
-    vendor.event = fields.event;
-    vendor.eventDate = fields.eventDate;
+    vendor.contact = vendorDetails.contact;
+    vendor.phone = vendorDetails.phone;
+    vendor.whatsapp = vendorDetails.whatsapp;
+    vendor.event = vendorDetails.event;
+    vendor.eventDate = vendorDetails.eventDate;
     vendor.quoted = fields.amount;
     vendor.paid = fields.paid;
-    vendor.paymentMode = fields.paymentMode;
-    vendor.ref = fields.ref;
-    vendor.paidOn = fields.paidOn;
-    vendor.address = fields.address;
-    vendor.notes = fields.notes;
+    vendor.paymentMode = vendorDetails.paymentMode;
+    vendor.ref = vendorDetails.ref;
+    vendor.paidOn = vendorDetails.paidOn;
+    vendor.address = vendorDetails.address;
+    vendor.notes = vendorDetails.notes;
     vendor.invoiceDeleted = false;
     fields.sourceVendorId = vendor.vendorId;
     fields.vendorInfo = vendorInvoiceInfo(vendor);
@@ -1385,7 +1453,7 @@ function addOrUpdateInvoice(event) {
       fields.sourceVendorTitle = fields.title;
     }
     fields.sourceVendorAmount = fields.amount;
-    fields.sourceVendorNotes = fields.notes;
+    fields.sourceVendorNotes = vendor.notes || "";
     fields.sourceVendorStatus = fields.status;
     if (!statusChanged) {
       const paidNow = Number(fields.paid) || 0;
@@ -1427,8 +1495,8 @@ function printReport(kind) {
     const rows = (st.invoices || []).map(i => `<tr><td>${esc(i.title || "Untitled")}</td><td>${esc(i.vendor || "")}</td><td>${esc(i.number || "")}</td><td>${esc(i.status || "Unpaid")}</td><td>${i.amount === "" ? "—" : inr(i.amount)}</td><td>${esc(i.notes || "")}</td></tr>`).join("");
     body = `<table class="report-grid"><thead><tr><th>Invoice</th><th>Vendor</th><th>Number</th><th>Status</th><th>Amount</th><th>Notes</th></tr></thead><tbody>${rows || "<tr><td colspan=\"6\">No added invoices</td></tr>"}</tbody></table>`;
   } else {
-    const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
-    const p = st.vendors.reduce((a, v) => a + (v.paid || 0), 0);
+    const q = st.vendors.reduce((a, v) => a + (Number(v.quoted) || 0), 0);
+    const p = st.vendors.reduce((a, v) => a + (Number(v.paid) || 0), 0);
     title = "Executive overview";
     body = `<h2>Financial summary</h2><table class="report-grid"><tbody>
       <tr><td>Total quoted</td><td>${inr(q)}</td></tr><tr><td>Total paid</td><td>${inr(p)}</td></tr>
@@ -1438,7 +1506,7 @@ function printReport(kind) {
   }
   host.innerHTML = reportShell(title, body);
   document.body.dataset.printReport = kind;
-  window.setTimeout(() => window.print(), 30);
+  window.print();
 }
 
 /* ------------------------------------------------------------------- events */
@@ -1452,13 +1520,22 @@ function refreshVendorRow(i) {
   const td = $(`#vendorTable tbody tr:nth-child(${i + 1}) td.vstat`);
   if (td) td.innerHTML = `<span class="pill ${s.cls}">${s.txt}</span>` +
     (s.bal !== undefined ? `<div class="dim">${inr(s.bal)} left</div>` : "");
+  const card = $$("#vendorCards .vendor-card")[i];
+  const cardStatus = card?.querySelector(".vendor-card-status");
+  if (cardStatus) {
+    cardStatus.className = `pill vendor-card-status ${s.cls}`;
+    cardStatus.textContent = s.txt;
+  }
+  const balance = Number(st.vendors[i]?.quoted || 0) - Number(st.vendors[i]?.paid || 0);
+  const balanceValue = card?.querySelector(".vendor-balance-value");
+  if (balanceValue) balanceValue.textContent = inr(Math.max(0, balance));
   renderVendorSummary();
 }
 
 function renderVendorSummary() {
   const host = $("#vendorSummary"); if (!host) return;
-  const q = st.vendors.reduce((a, v) => a + (v.quoted || 0), 0);
-  const p = st.vendors.reduce((a, v) => a + (v.paid  || 0), 0);
+  const q = st.vendors.reduce((a, v) => a + (Number(v.quoted) || 0), 0);
+  const p = st.vendors.reduce((a, v) => a + (Number(v.paid) || 0), 0);
   const byCls = c => st.vendors.filter(v => vendorStatus(v).cls === c).length;
   host.innerHTML = [
     ["Total quoted", inr(q), ""],
@@ -1478,9 +1555,10 @@ function addVendor() {
   });
   recordChange("Added a new vendor row");
   save(); renderAll();
-  const rows = $$("#vendorTable tbody tr");
+  const mobile = window.matchMedia?.("(max-width: 680px)").matches;
+  const rows = mobile ? $$("#vendorCards .vendor-card") : $$("#vendorTable tbody tr");
   const last = rows[rows.length - 1];
-  last?.querySelector("input")?.focus();
+  last?.querySelector('input[data-f="name"]')?.focus();
   last?.scrollIntoView({ block: "center", behavior: "smooth" });
   flash("New vendor row added");
 }
@@ -1824,6 +1902,18 @@ function wire() {
   document.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
     const t = e.target;
+    if (t.matches(".vendor-card input")) {
+      e.preventDefault();
+      const card = t.closest(".vendor-card");
+      const visibleInputs = [...card.querySelectorAll("input:not([type=hidden])")]
+        .filter(input => !input.disabled && input.getClientRects().length > 0);
+      const index = visibleInputs.indexOf(t);
+      if (index > -1 && visibleInputs[index + 1]) {
+        visibleInputs[index + 1].focus();
+        visibleInputs[index + 1].select?.();
+      }
+      return;
+    }
     if (!t.matches(GNAME) && !t.matches(".roomno")) return;
     e.preventDefault();
     const scope = t.closest(".gcell, .msheet, .roomlab") || document;
@@ -1833,12 +1923,12 @@ function wire() {
     if (i > -1 && all[i + 1]) { all[i + 1].focus(); all[i + 1].select?.(); }
   });
 
-  // remove a vendor row
-  $("#vendorTable").addEventListener("click", e => {
+  // remove a vendor row from either the desktop table or the phone cards
+  ["#vendorTable", "#vendorCards"].forEach(selector => $(selector)?.addEventListener("click", e => {
     const b = e.target.closest("[data-del]");
     if (!b) return;
     deleteVendor(+b.dataset.del);
-  });
+  }));
 
   $("#btnAddVendor").onclick = addVendor;
   $("#btnAddInvoice").onclick = () => editInvoice(-1);

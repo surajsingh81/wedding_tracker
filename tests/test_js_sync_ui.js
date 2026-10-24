@@ -8,7 +8,7 @@ var A = H.load(["app.js", "sync.js"], E.deps, [
   "getSt:function(){return st;}",
   "setBase:function(v){base=v;}",
   "save", "setSaveIndicator", "reportRealtimeStatus", "renderAll",
-  "renderRoomsMobile", "importLegacyInvoice", "mSel",
+  "renderRoomsMobile", "renderChanges", "importLegacyInvoice", "mSel",
 ]);
 var S = new H.Suite("SYNC UI / status and shared tabs");
 
@@ -99,6 +99,10 @@ S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes("vendor-remove"),
      "the remove-vendor action remains available in the mobile card");
 S.ok(E.doc.querySelector("#vendorTable").innerHTML.includes('value="75000"'),
      "Payments view renders the updated payment");
+S.ok(E.doc.querySelector("#vendorCards").innerHTML.includes("Sync Test Vendor")
+     && E.doc.querySelector("#vendorCards").innerHTML.includes('data-f="paymentMode"')
+     && E.doc.querySelector("#vendorCards").innerHTML.includes('value="75000"'),
+     "mobile vendor cards show editable payment details and amounts");
 S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("75,000"),
      "Payments summary reflects updated totals");
 S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("Sync Test Invoice"),
@@ -110,6 +114,21 @@ S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes('class="table-scro
      "invoice detail tables have a named, keyboard-scrollable region and caption");
 S.ok(!E.doc.querySelector("#invoicePanels").innerHTML.includes("Make editable"),
      "legacy invoice actions no longer use the Make editable label");
+A.editInvoice(-1);
+S.eq(E.doc.querySelector("#invoiceVendorDetails").open, false,
+     "new invoices keep optional vendor details collapsed");
+var vendorWithDetails = A.getSt().vendors[0];
+vendorWithDetails.contact = "Existing contact";
+vendorWithDetails.paymentMode = "Bank transfer";
+A.editInvoice(-1);
+E.doc.querySelector("#invoiceTitle").value = "New standalone invoice";
+E.doc.querySelector("#invoiceVendor").value = vendorWithDetails.name;
+E.doc.querySelector("#invoiceAmount").value = "1000";
+A.addOrUpdateInvoice({ preventDefault: function () {} });
+S.eq(vendorWithDetails.contact, "Existing contact",
+     "saving an invoice with collapsed details preserves existing vendor contacts");
+S.eq(vendorWithDetails.paymentMode, "Bank transfer",
+     "saving an invoice with collapsed details preserves the vendor payment mode");
 A.importLegacyInvoice("Nirmal's Executive");
 var hotelInvoice = A.getSt().invoices.find(invoice => invoice.sourceDetail === "Nirmal's Executive");
 S.ok(!!hotelInvoice,
@@ -118,6 +137,8 @@ S.eq(hotelInvoice.amount, 84000,
      "the editable hotel invoice starts from its quoted amount");
 S.eq(E.doc.querySelector("#invoiceForm").dataset.editIndex, String(A.getSt().invoices.indexOf(hotelInvoice)),
      "the linked invoice opens directly in the editor");
+S.eq(E.doc.querySelector("#invoiceVendorDetails").open, true,
+     "editing a linked invoice opens its existing vendor details");
 A.importLegacyInvoice("Nirmal's Executive");
 S.eq(A.getSt().invoices.filter(invoice => invoice.sourceDetail === "Nirmal's Executive").length, 1,
      "reopening a hotel detail edits its linked invoice instead of duplicating it");
@@ -138,6 +159,37 @@ S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("Updated remotely"
 S.ok(E.doc.querySelector("#invoicePanels").innerHTML.includes("No notes added.")
      && !E.doc.querySelector("#invoicePanels").innerHTML.includes('class="invoice-notes" disabled'),
      "invoices without notes do not expose an inactive disclosure control");
+
+state.vendors[0].quoted = "125000";
+A.setSt(state);
+A.renderAll();
+S.ok(E.doc.querySelector("#vendorSummary").innerHTML.includes("125,000"),
+     "vendor payment totals add numeric values stored as form strings");
+
+state.changeLog = [
+  {
+    t: "2026-10-24T06:00:00.000Z",
+    who: "Asha",
+    what: 'Quoted amount of "Sync Test Vendor": "90000" → "100000" · Payment mode of "Sync Test Vendor": (empty) → "UPI"',
+    changes: [
+      'Quoted amount of "Sync Test Vendor": "90000" → "100000"',
+      'Payment mode of "Sync Test Vendor": (empty) → "UPI"',
+    ],
+  },
+  {
+    t: "2026-10-24T05:00:00.000Z",
+    who: "Ravi",
+    what: 'Changed vendor event · Updated vendor payment',
+  },
+];
+A.setSt(state);
+A.renderChanges();
+S.ok(E.doc.querySelector("#changesList").innerHTML.includes('class="activity-details"')
+     && E.doc.querySelector("#changesList").innerHTML.includes('class="activity-details"><li>Quoted amount')
+     && E.doc.querySelector("#changesList").innerHTML.includes("<li>Payment mode")
+     && E.doc.querySelector("#changesList").innerHTML.includes("<li>Changed vendor event</li>")
+     && E.doc.querySelector("#changesList").innerHTML.includes("<li>Updated vendor payment</li>"),
+     "new and previously grouped shared history lists each individual edit under its editor");
 
 state.hotels[0].totalRooms = 2;
 state.hotels[0].roomsBooked = 2;

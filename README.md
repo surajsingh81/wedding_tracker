@@ -73,7 +73,11 @@ Every named vendor has a linked invoice. Existing vendor rows are linked or
 backfilled automatically; adding a vendor and entering its name creates the
 invoice. Contact, event, payment, address, quote, paid amount, and notes fields
 stay in sync in either tab. Deleting a vendor also deletes its linked invoice;
-deleting only an invoice leaves the vendor row in place.
+deleting only an invoice leaves the vendor row in place. On phones, vendor
+cards support Enter-to-advance between visible fields. Optional vendor details
+on a new invoice stay collapsed until needed; editing a linked invoice opens
+those fields automatically. Saving a new invoice without opening that section
+preserves existing vendor contact and payment details.
 
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.
@@ -89,8 +93,9 @@ motion; color contrast was checked in both light and dark themes.
 ## PDF reports
 
 Use **Export PDF** in the header (or **More** on mobile) to create a clean,
-print-ready report. The browser print dialog can save the selected report as a
-PDF. Available reports are:
+print-ready report. On phones, choosing a report opens the system print dialog
+directly with a page-sized, readable layout; choose **Save as PDF** (or the
+equivalent option on your device) to save it. Available reports are:
 
 - Overview — financial summary and hotel room-night status.
 - Room bookings — nightly pre-booked rooms and guest-detail completion.
@@ -153,7 +158,8 @@ device. Every edit (guest names, vendor fields, add/remove vendor, reset) is
 recorded with your name and a timestamp, and shown on the **Changes** tab.
 
 The log lives in that browser's `localStorage` (last 300 entries), so each
-device shows its own history.
+device shows its own history. Shared activity lists each recorded field change
+under the editor who made it.
 
 ## Legacy Excel relay
 

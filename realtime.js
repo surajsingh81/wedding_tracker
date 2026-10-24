@@ -168,6 +168,9 @@
         app.setSyncBusy(true);
         app.status("Sending changes to the shared tracker…", "msg-ok");
         try {
+          const changes = (app.getChanges?.() || [])
+            .filter(change => change.who === app.getName()).slice(-5).map(change => change.what);
+          const changeDetails = changes.length ? changes : ["Updated the shared wedding tracker"];
           result = remoteState
             ? await invokeWriter("patch", {
               patches,
@@ -175,8 +178,8 @@
             change: {
               t: new Date().toISOString(),
               who: app.getName() || "Anonymous",
-              what: (app.getChanges?.() || []).filter(c => c.who === app.getName()).slice(-5)
-                .map(c => c.what).join(" · ") || "Updated the shared wedding tracker",
+              changes: changeDetails,
+              what: changeDetails.join(" · "),
               id: `change-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             },
           }, password)
@@ -184,7 +187,8 @@
             data: { ...state, changeLog: [{
               t: new Date().toISOString(),
               who: app.getName() || "Anonymous",
-              what: "Created the shared wedding tracker",
+              changes: changeDetails,
+              what: changeDetails.join(" · "),
               id: `change-${Date.now()}`,
             }] },
           }, password);
