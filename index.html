@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=46">
+<link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body>
 
@@ -88,6 +88,7 @@
             <button type="button" data-print-report="overview">Overview</button>
             <button type="button" data-print-report="rooms">Room bookings</button>
             <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="misc">Miscellaneous expenses</button>
             <button type="button" data-print-report="invoices">Invoices</button>
           </div>
         </details>
@@ -101,6 +102,7 @@
             <button type="button" data-print-report="overview">Overview report</button>
             <button type="button" data-print-report="rooms">Room bookings</button>
             <button type="button" data-print-report="vendors">Pending vendor payments</button>
+            <button type="button" data-print-report="misc">Miscellaneous expenses</button>
             <button type="button" data-print-report="invoices">Invoices</button>
           </div>
           <button type="button" class="btn btn-reset danger" title="Reload the last synced data; unsynced edits will be lost">
@@ -118,6 +120,7 @@
   <button class="tab" data-view="hotels">Hotels</button>
   <button class="tab" data-view="guests">Guests</button>
   <button class="tab" data-view="vendors">Vendors & Payments</button>
+  <button class="tab" data-view="miscellaneous">Miscellaneous</button>
   <button class="tab" data-view="invoices">Invoices</button>
   <button class="tab" data-view="changes">Changes</button>
 </nav>
@@ -213,6 +216,46 @@
     <div class="cards" id="vendorSummary"></div>
   </section>
 
+  <!-- ====================================================== MISCELLANEOUS -->
+  <section id="view-miscellaneous" class="view" hidden>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Other spending</p>
+        <h2>Miscellaneous expenses</h2>
+        <p class="hint">Track one-off expenses, notes, and how each was paid.</p>
+      </div>
+      <button id="btnAddMiscExpense" class="btn primary" type="button">+ Add expense</button>
+    </div>
+    <div class="cards misc-summary" id="miscSummary" aria-label="Miscellaneous expense totals"></div>
+    <form id="miscExpenseForm" class="misc-form" aria-label="Miscellaneous expense" hidden>
+      <h3 id="miscFormHeading">Add an expense</h3>
+      <div class="misc-form-grid">
+        <label>Title
+          <input id="miscTitle" type="text" maxlength="100" autocomplete="off" required>
+        </label>
+        <label>Amount
+          <input id="miscAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
+        </label>
+        <label>Paid through
+          <select id="miscPaymentMode" required>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Credit card">Credit card</option>
+          </select>
+        </label>
+        <label class="misc-notes-field">Notes
+          <textarea id="miscNotes" rows="3" maxlength="1000" placeholder="Optional details"></textarea>
+        </label>
+      </div>
+      <div class="misc-form-actions">
+        <button class="btn primary" type="submit">Save expense</button>
+        <button class="btn" id="cancelMiscExpense" type="button">Cancel</button>
+      </div>
+      <p id="miscFormError" class="form-error" role="alert"></p>
+    </form>
+    <div id="miscExpenseList" class="misc-expense-list"></div>
+  </section>
+
   <!-- ============================================================ INVOICES -->
   <section id="view-invoices" class="view" hidden>
     <div class="section-heading">
@@ -293,6 +336,8 @@
 <script src="auth.js?v=38"></script>
 <script src="sync.js?v=38"></script>
 <script src="realtime.js?v=39"></script>
-<script src="app.js?v=47"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="app.js?v=51"></script>
 </body>
 </html>

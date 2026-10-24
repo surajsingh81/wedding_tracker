@@ -105,6 +105,14 @@ function ensureVendorId(v, index) {
 // rest of the app can assume a single shape.
 function normalize(d) {
   d.invoices = Array.isArray(d.invoices) ? d.invoices : [];
+  d.miscExpenses = Array.isArray(d.miscExpenses) ? d.miscExpenses : [];
+  d.miscExpenses.forEach(expense => {
+    if (!expense.id) expense.id = `misc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (!["Cash", "UPI", "Credit card"].includes(expense.paymentMode)) expense.paymentMode = "Cash";
+    expense.title = String(expense.title || "");
+    expense.amount = Number(expense.amount) || 0;
+    expense.notes = String(expense.notes || "");
+  });
   d.changeLog = Array.isArray(d.changeLog) ? d.changeLog : [];
   for (const h of d.hotels || []) {
     const nights = h.nights || [];
@@ -662,6 +670,7 @@ function renderAll() {
   renderHotelManagement();
   renderRooms();          // both the desktop grid and the phone sheet
   renderVendors();
+  renderMiscExpenses();
   renderInvoices();
   renderChanges();
 }
@@ -745,6 +754,8 @@ function renderOverview() {
     ["Total quoted", inr(q), "", ""],
     ["Total paid", inr(p), "", "ok"],
     ["Total outstanding", inr(q - p), "", q - p > 0 ? "warn" : "ok"],
+    ["Miscellaneous spend", inr((st.miscExpenses || []).reduce((sum, expense) =>
+      sum + (Number(expense.amount) || 0), 0)), "Tracked separately", ""],
   ].map(([k, v, n, c]) =>
     `<div class="card ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n || "") || "&nbsp;"}</div></div>`
   ).join("");
@@ -1118,6 +1129,117 @@ function renderVendors() {
   renderVendorSummary();
 }
 
+function renderMiscExpenses() {
+  const list = $("#miscExpenseList");
+  const summary = $("#miscSummary");
+  if (!list || !summary) return;
+  const expenses = st.miscExpenses || [];
+  const total = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  const byMode = mode => expenses
+    .filter(expense => expense.paymentMode === mode)
+    .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  summary.innerHTML = [
+    ["Total expenses", inr(total), ""],
+    ["Paid by cash", inr(byMode("Cash")), ""],
+    ["Paid by UPI", inr(byMode("UPI")), ""],
+    ["Paid by credit card", inr(byMode("Credit card")), ""],
+  ].map(([label, amount]) =>
+    `<div class="card"><div class="k">${esc(label)}</div><div class="v">${esc(amount)}</div></div>`
+  ).join("");
+  list.innerHTML = expenses.length
+    ? expenses.map(expense => `<article class="misc-expense-card">
+        <div class="misc-expense-main">
+          <div class="misc-expense-title-row">
+            <h3>${esc(expense.title || "Untitled expense")}</h3>
+            <strong class="misc-expense-amount">${inr(expense.amount)}</strong>
+          </div>
+          <span class="pill misc-payment-pill">${esc(expense.paymentMode)}</span>
+          ${expense.notes ? `<p class="misc-expense-notes">${esc(expense.notes)}</p>` : ""}
+        </div>
+        <div class="misc-expense-actions">
+          <button class="btn small" type="button" data-edit-misc="${esc(expense.id)}">Edit</button>
+          <button class="btn small danger" type="button" data-delete-misc="${esc(expense.id)}">Delete</button>
+        </div>
+      </article>`).join("")
+    : `<div class="empty-state"><div class="empty-icon" aria-hidden="true">＋</div><h3>No miscellaneous expenses</h3><p>Add an expense to keep one-off spending and payment methods together.</p></div>`;
+}
+
+function editMiscExpense(id = "") {
+  const form = $("#miscExpenseForm");
+  if (!form) return;
+  const expense = id ? st.miscExpenses.find(item => item.id === id) : null;
+  form.reset();
+  form.hidden = false;
+  form.dataset.editId = expense?.id || "";
+  $("#miscFormHeading").textContent = expense ? "Edit expense" : "Add an expense";
+  $("#miscTitle").value = expense?.title || "";
+  $("#miscAmount").value = expense?.amount ?? "";
+  $("#miscPaymentMode").value = expense?.paymentMode || "Cash";
+  $("#miscNotes").value = expense?.notes || "";
+  $("#miscFormError").textContent = "";
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#miscTitle").focus();
+}
+
+function saveMiscExpense(event) {
+  event.preventDefault();
+  const title = $("#miscTitle").value.trim();
+  const amount = Number($("#miscAmount").value);
+  const paymentMode = $("#miscPaymentMode").value;
+  const notes = $("#miscNotes").value.trim();
+  if (!title || !Number.isFinite(amount) || amount <= 0
+      || !["Cash", "UPI", "Credit card"].includes(paymentMode)) {
+    $("#miscFormError").textContent = "Enter a title, an amount greater than zero, and a payment method.";
+    return;
+  }
+  const id = $("#miscExpenseForm").dataset.editId;
+  const expense = id ? st.miscExpenses.find(item => item.id === id) : null;
+  if (id && !expense) {
+    $("#miscFormError").textContent = "This expense is no longer available. Close the form and try again.";
+    return;
+  }
+  const wasEditing = Boolean(expense);
+  if (expense) {
+    const changes = [];
+    if (expense.title !== title) changes.push(`title to "${title}"`);
+    if (Number(expense.amount) !== amount) changes.push(`amount to ${inr(amount)}`);
+    if (expense.paymentMode !== paymentMode) changes.push(`payment method to ${paymentMode}`);
+    if (expense.notes !== notes) changes.push("notes");
+    Object.assign(expense, { title, amount, paymentMode, notes });
+    if (changes.length) recordChange(`Updated miscellaneous expense "${title}": ${changes.join(", ")}`);
+  } else {
+    st.miscExpenses.push({
+      id: `misc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title, amount, paymentMode, notes,
+    });
+    recordChange(`Added miscellaneous expense "${title}" for ${inr(amount)} paid by ${paymentMode}`);
+  }
+  save();
+  closeMiscExpenseForm();
+  renderAll();
+  flash(wasEditing ? "Expense updated" : "Expense added");
+}
+
+function closeMiscExpenseForm() {
+  const form = $("#miscExpenseForm");
+  if (!form) return;
+  form.reset();
+  form.hidden = true;
+  delete form.dataset.editId;
+  $("#miscFormError").textContent = "";
+}
+
+function deleteMiscExpense(id) {
+  const index = st.miscExpenses.findIndex(item => item.id === id);
+  if (index < 0) return;
+  if (!confirm(`Delete "${st.miscExpenses[index].title || "Untitled expense"}"? This cannot be undone.`)) return;
+  const [expense] = st.miscExpenses.splice(index, 1);
+  recordChange(`Deleted miscellaneous expense "${expense.title || "Untitled expense"}" (${inr(expense.amount)}, ${expense.paymentMode || "Cash"})`);
+  save();
+  renderAll();
+  flash("Expense deleted");
+}
+
 function renderInvoices() {
   const host = $("#invoicePanels"); if (!host) return;
   const legacy = Object.entries(st.vendorDetails || {}).map(([name, d]) => {
@@ -1474,6 +1596,178 @@ function addOrUpdateInvoice(event) {
 function reportShell(title, body) {
   return `<h1>${esc(base?.event || "Wedding Tracker")}</h1><div class="report-meta">${esc(title)} · Generated ${new Date().toLocaleDateString()}</div>${body}`;
 }
+function pdfMoney(value) {
+  return inr(value).replace(/₹/g, "INR ");
+}
+function pdfFilename(kind) {
+  const name = kind === "rooms" ? "room-bookings"
+    : kind === "vendors" ? "pending-vendor-payments"
+      : kind === "misc" ? "miscellaneous-expenses"
+        : kind === "invoices" ? "invoices" : "overview";
+  return `wedding-tracker-${name}.pdf`;
+}
+function pdfTable(doc, options) {
+  if (typeof doc.autoTable !== "function") {
+    throw new Error("The PDF table component did not load. Check your internet connection and retry.");
+  }
+  doc.autoTable({
+    theme: "grid",
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 2.5, overflow: "linebreak" },
+    headStyles: { fillColor: [44, 87, 53], textColor: 255 },
+    margin: { left: 14, right: 14 },
+    ...options,
+  });
+}
+function addPdfHeading(doc, text, y) {
+  if (y > 265) {
+    doc.addPage();
+    y = 18;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text(text, 14, y);
+  return y + 4;
+}
+async function downloadReport(kind) {
+  try {
+    const JsPDF = window.jspdf?.jsPDF;
+    if (!JsPDF) throw new Error("The PDF generator did not load. Check your internet connection and retry.");
+    const doc = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const reportTitles = {
+      rooms: "Room booking report",
+      vendors: "Pending vendor payments",
+      misc: "Miscellaneous expenses",
+      invoices: "Invoice register",
+      overview: "Executive overview",
+    };
+    const title = reportTitles[kind] || reportTitles.overview;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(String(base?.event || "Wedding Tracker"), 14, 17);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`${title} · Generated ${new Date().toLocaleDateString()}`, 14, 24);
+    let y = 33;
+
+    if (kind === "rooms") {
+      for (const hotel of st.hotels) {
+        y = addPdfHeading(doc, hotel.name || "Hotel", y);
+        doc.setFontSize(8);
+        doc.text(`${hotel.checkIn || ""} - ${hotel.checkOut || ""}`, 14, y + 1);
+        pdfTable(doc, {
+          startY: y + 4,
+          head: [["Date", "Pre-booked", "Guest details", "Status"]],
+          body: hotel.nights.map((night, i) => {
+            const status = nightStatus(hotel, i);
+            return [night, status.prebooked, status.f, status.txt];
+          }),
+        });
+        y = doc.lastAutoTable.finalY + 8;
+      }
+      if (!st.hotels.length) pdfTable(doc, { startY: y, head: [["Room bookings"]], body: [["No hotels added"]] });
+    } else if (kind === "vendors") {
+      const pending = st.vendors.filter(v => vendorStatus(v).cls === "warn");
+      pdfTable(doc, {
+        startY: y,
+        head: [["Vendor", "Event", "Quoted", "Paid", "Balance", "Payment mode"]],
+        body: pending.map(v => [
+          v.name || "Untitled", v.event || "", pdfMoney(v.quoted || 0), pdfMoney(v.paid || 0),
+          pdfMoney(Math.max(0, (Number(v.quoted) || 0) - (Number(v.paid) || 0))), v.paymentMode || "",
+        ]),
+        foot: [["Total outstanding", "", "", "", pdfMoney(pending.reduce((sum, v) =>
+          sum + Math.max(0, (Number(v.quoted) || 0) - (Number(v.paid) || 0)), 0)), ""]],
+        showFoot: "lastPage",
+      });
+    } else if (kind === "invoices") {
+      pdfTable(doc, {
+        startY: y,
+        head: [["Invoice", "Vendor", "Number", "Status", "Amount", "Notes"]],
+        body: st.invoices.length ? st.invoices.map(invoice => [
+          invoice.title || "Untitled", invoice.vendor || "", invoice.number || "",
+          invoice.status || "Unpaid", invoice.amount === "" ? "" : pdfMoney(invoice.amount), invoice.notes || "",
+        ]) : [["No added invoices", "", "", "", "", ""]],
+      });
+    } else if (kind === "misc") {
+      const expenses = st.miscExpenses || [];
+      pdfTable(doc, {
+        startY: y,
+        head: [["Expense", "Amount", "Paid through", "Notes"]],
+        body: expenses.length ? expenses.map(expense => [
+          expense.title || "Untitled expense", pdfMoney(expense.amount), expense.paymentMode || "", expense.notes || "",
+        ]) : [["No added expenses", "", "", ""]],
+        foot: [["Total expenses", pdfMoney(expenses.reduce((sum, expense) =>
+          sum + (Number(expense.amount) || 0), 0)), "", ""]],
+        showFoot: "lastPage",
+      });
+    } else {
+      const quoted = st.vendors.reduce((sum, vendor) => sum + (Number(vendor.quoted) || 0), 0);
+      const paid = st.vendors.reduce((sum, vendor) => sum + (Number(vendor.paid) || 0), 0);
+      const expenses = st.miscExpenses || [];
+      const miscTotal = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+      pdfTable(doc, {
+        startY: y,
+        head: [["Financial summary", "Amount"]],
+        body: [
+          ["Total quoted", pdfMoney(quoted)],
+          ["Vendor payments made", pdfMoney(paid)],
+          ["Vendor outstanding", pdfMoney(quoted - paid)],
+          ["Miscellaneous spend", pdfMoney(miscTotal)],
+          ...["Cash", "UPI", "Credit card"].map(mode => [
+            `Miscellaneous paid by ${mode}`, pdfMoney(expenses.filter(expense => expense.paymentMode === mode)
+              .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0)),
+          ]),
+        ],
+      });
+      y = doc.lastAutoTable.finalY + 9;
+      y = addPdfHeading(doc, "Hotels", y);
+      pdfTable(doc, {
+        startY: y,
+        head: [["Hotel", "Room-nights pre-booked", "Room-nights with details"]],
+        body: st.hotels.length ? st.hotels.map(hotel => [
+          hotel.name || "", hotel.needed.reduce((sum, count) => sum + count, 0),
+          hotel.nights.reduce((sum, _, i) => sum + nightStatus(hotel, i).f, 0),
+        ]) : [["No hotels added", "", ""]],
+      });
+    }
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    for (let page = 1; page <= doc.getNumberOfPages(); page++) {
+      doc.setPage(page);
+      doc.text(`${page} / ${doc.getNumberOfPages()}`, pageWidth - 14, 202, { align: "right" });
+    }
+    const fileName = pdfFilename(kind);
+    const blob = doc.output("blob");
+    if (navigator.share && navigator.canShare && typeof File === "function") {
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      let filesShareable = false;
+      try {
+        filesShareable = navigator.canShare({ files: [file] });
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+      }
+      if (filesShareable) {
+        await navigator.share({ files: [file], title });
+        flash("PDF shared");
+        return;
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    flash("PDF download started");
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    console.error("PDF export failed", error);
+    flash(`PDF export failed: ${error.message || "Please try again."} Print / Save as PDF remains available.`);
+  }
+}
 function printReport(kind) {
   const host = $("#pdfReport"); if (!host) return;
   let title = "Overview report", body = "";
@@ -1490,6 +1784,13 @@ function printReport(kind) {
     body = `<h2>${pending.length} vendors need follow-up</h2><table class="report-grid"><thead><tr><th>Vendor</th><th>Event</th><th>Quoted</th><th>Paid</th><th>Balance</th><th>Payment mode</th></tr></thead><tbody>
       ${pending.map(v => `<tr><td>${esc(v.name || "Untitled")}</td><td>${esc(v.event || "")}</td><td>${inr(v.quoted || 0)}</td><td>${inr(v.paid || 0)}</td><td>${inr(Math.max(0, (v.quoted || 0) - (v.paid || 0)))} </td><td>${esc(v.paymentMode || "")}</td></tr>`).join("")}
       <tr class="report-total"><td colspan="2">Total outstanding</td><td colspan="4">${inr(pending.reduce((sum, v) => sum + Math.max(0, (v.quoted || 0) - (v.paid || 0)), 0))}</td></tr></tbody></table>`;
+  } else if (kind === "misc") {
+    title = "Miscellaneous expenses";
+    const expenses = st.miscExpenses || [];
+    const total = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    body = `<table class="report-grid"><thead><tr><th>Expense</th><th>Amount</th><th>Paid through</th><th>Notes</th></tr></thead><tbody>
+      ${expenses.map(expense => `<tr><td>${esc(expense.title || "Untitled expense")}</td><td>${inr(expense.amount)}</td><td>${esc(expense.paymentMode || "")}</td><td>${esc(expense.notes || "")}</td></tr>`).join("") || "<tr><td colspan=\"4\">No added expenses</td></tr>"}
+      <tr class="report-total"><td>Total expenses</td><td colspan="3">${inr(total)}</td></tr></tbody></table>`;
   } else if (kind === "invoices") {
     title = "Invoice register";
     const rows = (st.invoices || []).map(i => `<tr><td>${esc(i.title || "Untitled")}</td><td>${esc(i.vendor || "")}</td><td>${esc(i.number || "")}</td><td>${esc(i.status || "Unpaid")}</td><td>${i.amount === "" ? "—" : inr(i.amount)}</td><td>${esc(i.notes || "")}</td></tr>`).join("");
@@ -1497,20 +1798,27 @@ function printReport(kind) {
   } else {
     const q = st.vendors.reduce((a, v) => a + (Number(v.quoted) || 0), 0);
     const p = st.vendors.reduce((a, v) => a + (Number(v.paid) || 0), 0);
+    const expenses = st.miscExpenses || [];
+    const miscTotal = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
     title = "Executive overview";
     body = `<h2>Financial summary</h2><table class="report-grid"><tbody>
       <tr><td>Total quoted</td><td>${inr(q)}</td></tr><tr><td>Total paid</td><td>${inr(p)}</td></tr>
-      <tr class="report-total"><td>Outstanding</td><td>${inr(q - p)}</td></tr></tbody></table>
+      <tr class="report-total"><td>Outstanding</td><td>${inr(q - p)}</td></tr>
+      <tr><td>Miscellaneous spend</td><td>${inr(miscTotal)}</td></tr>
+      ${["Cash", "UPI", "Credit card"].map(mode => `<tr><td>Miscellaneous paid by ${esc(mode)}</td><td>${inr(expenses.filter(expense => expense.paymentMode === mode).reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0))}</td></tr>`).join("")}
+      </tbody></table>
       <h2>Hotels</h2><table class="report-grid"><thead><tr><th>Hotel</th><th>Room-nights pre-booked</th><th>Room-nights with details</th></tr></thead><tbody>
       ${st.hotels.map(h => `<tr><td>${esc(h.name)}</td><td>${h.needed.reduce((a, n) => a + n, 0)}</td><td>${h.nights.reduce((a, _, i) => a + nightStatus(h, i).f, 0)}</td></tr>`).join("")}</tbody></table>`;
   }
   host.innerHTML = `<div class="report-preview">
     <div class="report-preview-actions">
+      <button class="btn primary" type="button" data-report-download>Download PDF</button>
       <button class="btn primary" type="button" data-report-print>Print / Save as PDF</button>
       <button class="btn" type="button" data-report-close>Close report</button>
     </div>
     <article class="report-page">${reportShell(title, body)}</article>
   </div>`;
+  host.setAttribute("aria-hidden", "false");
   document.body.dataset.printReport = kind;
   $("#pdfReport [data-report-close]")?.focus();
 }
@@ -1937,6 +2245,15 @@ function wire() {
   }));
 
   $("#btnAddVendor").onclick = addVendor;
+  $("#btnAddMiscExpense").onclick = () => editMiscExpense();
+  $("#miscExpenseForm").onsubmit = saveMiscExpense;
+  $("#cancelMiscExpense").onclick = closeMiscExpenseForm;
+  $("#miscExpenseList").addEventListener("click", e => {
+    const edit = e.target.closest("[data-edit-misc]");
+    if (edit) { editMiscExpense(edit.dataset.editMisc); return; }
+    const remove = e.target.closest("[data-delete-misc]");
+    if (remove) deleteMiscExpense(remove.dataset.deleteMisc);
+  });
   $("#btnAddInvoice").onclick = () => editInvoice(-1);
   $("#invoiceForm").onsubmit = addOrUpdateInvoice;
   $("#cancelInvoice").onclick = resetInvoiceForm;
@@ -1968,6 +2285,10 @@ function wire() {
     printReport(button.dataset.printReport);
   }; });
   $("#pdfReport").addEventListener("click", e => {
+    if (e.target.closest("[data-report-download]")) {
+      downloadReport(document.body.dataset.printReport);
+      return;
+    }
     if (e.target.closest("[data-report-print]")) {
       window.print();
       return;
@@ -1975,12 +2296,14 @@ function wire() {
     if (e.target.closest("[data-report-close]")) {
       document.body.removeAttribute("data-print-report");
       $("#pdfReport").innerHTML = "";
+      $("#pdfReport").setAttribute("aria-hidden", "true");
     }
   });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape" || !document.body.hasAttribute("data-print-report")) return;
     document.body.removeAttribute("data-print-report");
     $("#pdfReport").innerHTML = "";
+    $("#pdfReport").setAttribute("aria-hidden", "true");
   });
   window.addEventListener("afterprint", () => {
     $("#pdfReport [data-report-print]")?.focus();

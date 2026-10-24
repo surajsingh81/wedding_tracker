@@ -3,14 +3,16 @@
 A small static wedding planning page for hotel bookings, guest lists, vendor
 payments, invoices, and shared activity.
 
-No build step, no dependencies, no server. It is plain `index.html` + `styles.css`
-+ `app.js` + `data.json`, so it runs straight from GitHub Pages.
+No build step, backend, or package install is needed. It is a static
+`index.html` + `styles.css` + `app.js` + `data.json` site. jsPDF is loaded from
+jsDelivr for direct PDF downloads, so PDF generation requires an internet
+connection; the print fallback remains available.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `index.html` | Page structure and the Overview, Hotels, Guests, Vendors, Invoices, and Changes tabs |
+| `index.html` | Page structure and the Overview, Hotels, Guests, Vendors, Miscellaneous, Invoices, and Changes tabs |
 | `styles.css` | All styling, including dark mode and print |
 | `app.js` | Rendering, editing, and the stats |
 | `data.json` | **The data**, exported from the workbook |
@@ -79,6 +81,11 @@ on a new invoice stay collapsed until needed; editing a linked invoice opens
 those fields automatically. Saving a new invoice without opening that section
 preserves existing vendor contact and payment details.
 
+Use **Miscellaneous** to add, edit, or delete one-off expenses with a title,
+amount, optional notes, and Cash, UPI, or Credit card payment method. Its total
+and payment-method subtotals appear on the tab and as a separate spend figure
+on the Overview; vendor quote and payment totals remain unchanged.
+
 There is deliberately **no Export/Import**: the page is not meant to move data
 around by hand.
 
@@ -92,14 +99,17 @@ motion; color contrast was checked in both light and dark themes.
 
 ## PDF reports
 
-Use **Export PDF** in the header (or **More** on mobile) to create a clean,
-print-ready report. On phones, choosing a report opens a preview first. Tap
-**Print / Save as PDF** to open the device's print dialog, then choose
-**Save as PDF** (or the equivalent option on your device). Available reports are:
+Use **Export PDF** in the header (or **More** on mobile) to create a report.
+Choosing a report opens a preview. **Download PDF** generates a PDF directly
+without relying on the mobile print dialog; on supported phones it opens the
+system share sheet so the file can be saved or shared. **Print / Save as PDF**
+remains available as an alternative. Available reports are:
 
-- Overview — financial summary and hotel room-night status.
+- Overview — vendor financial summary, miscellaneous spending by payment
+  method, and hotel room-night status.
 - Room bookings — nightly pre-booked rooms and guest-detail completion.
 - Pending vendor payments — vendors with an outstanding balance.
+- Miscellaneous expenses — expense titles, amounts, notes, and payment methods.
 - Invoices — added invoice records, status, amounts, and notes.
 
 The reports are intentionally separate from the editing screens so a PDF is
