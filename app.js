@@ -1504,9 +1504,15 @@ function printReport(kind) {
       <h2>Hotels</h2><table class="report-grid"><thead><tr><th>Hotel</th><th>Room-nights pre-booked</th><th>Room-nights with details</th></tr></thead><tbody>
       ${st.hotels.map(h => `<tr><td>${esc(h.name)}</td><td>${h.needed.reduce((a, n) => a + n, 0)}</td><td>${h.nights.reduce((a, _, i) => a + nightStatus(h, i).f, 0)}</td></tr>`).join("")}</tbody></table>`;
   }
-  host.innerHTML = reportShell(title, body);
+  host.innerHTML = `<div class="report-preview">
+    <div class="report-preview-actions">
+      <button class="btn primary" type="button" data-report-print>Print / Save as PDF</button>
+      <button class="btn" type="button" data-report-close>Close report</button>
+    </div>
+    <article class="report-page">${reportShell(title, body)}</article>
+  </div>`;
   document.body.dataset.printReport = kind;
-  window.print();
+  $("#pdfReport [data-report-close]")?.focus();
 }
 
 /* ------------------------------------------------------------------- events */
@@ -1961,9 +1967,23 @@ function wire() {
     button.closest(".export-menu")?.removeAttribute("open");
     printReport(button.dataset.printReport);
   }; });
-  window.addEventListener("afterprint", () => {
+  $("#pdfReport").addEventListener("click", e => {
+    if (e.target.closest("[data-report-print]")) {
+      window.print();
+      return;
+    }
+    if (e.target.closest("[data-report-close]")) {
+      document.body.removeAttribute("data-print-report");
+      $("#pdfReport").innerHTML = "";
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape" || !document.body.hasAttribute("data-print-report")) return;
     document.body.removeAttribute("data-print-report");
-    const report = $("#pdfReport"); if (report) report.innerHTML = "";
+    $("#pdfReport").innerHTML = "";
+  });
+  window.addEventListener("afterprint", () => {
+    $("#pdfReport [data-report-print]")?.focus();
   });
 
   $("#btnSync").onclick = () => window.RealtimeSync?.syncNow();

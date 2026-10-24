@@ -74,6 +74,11 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}h2{font-size:28px;marg
 .vendor-card-list{display:none}
 .activity-details{display:grid;gap:5px;margin:8px 0;padding-left:19px}
 .activity-details li{padding-left:2px}
+body[data-print-report] #pdfReport{display:block;position:fixed;inset:0;z-index:60;overflow-y:auto;overscroll-behavior:contain;padding:20px;background:var(--bg);color:var(--ink)}
+.report-preview{width:min(860px,100%);margin:0 auto}
+.report-preview-actions{position:sticky;top:0;z-index:1;display:flex;justify-content:flex-end;gap:10px;padding:10px 0 14px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px)}
+.report-preview-actions .btn{min-height:46px}
+.report-page{padding:30px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
 @media(max-width:680px){
  .vendor-scroll{display:none}
  .vendor-card-list.mobile-only{display:grid;gap:12px;margin-bottom:28px}
@@ -100,6 +105,11 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}h2{font-size:28px;marg
  .vendor-card-more[open] summary::after{content:"−"}
  .vendor-card-more .vendor-card-fields{padding-top:3px}
  .vendor-card-more .vendor-field-wide{grid-column:1/-1}
+ body[data-print-report] #pdfReport{padding:0}
+ .report-preview{width:100%;min-height:100%;padding-bottom:env(safe-area-inset-bottom,0)}
+ .report-preview-actions{justify-content:stretch;padding:calc(10px + env(safe-area-inset-top,0)) 14px 10px}
+ .report-preview-actions .btn{flex:1;padding:0 8px;font-size:12px}
+ .report-page{min-height:calc(100vh - 74px);padding:18px 14px;border:0;border-radius:0;box-shadow:none}
 }
 @media(max-width:360px){
  .vendor-card-head{padding:13px}
@@ -115,6 +125,8 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}h2{font-size:28px;marg
  body[data-print-report] .lock{display:none!important}
  body[data-print-report] #pdfReport{display:block!important;width:100%;max-width:none;color:#17202b;background:#fff}
  body[data-print-report] #pdfReport *{box-sizing:border-box}
+ body[data-print-report] .report-preview-actions{display:none!important}
+ body[data-print-report] .report-page{width:100%;padding:0;border:0;border-radius:0;box-shadow:none}
  body[data-print-report] #pdfReport .report-grid{table-layout:fixed;overflow-wrap:anywhere;word-break:normal}
  body[data-print-report] #pdfReport .report-grid th,
  body[data-print-report] #pdfReport .report-grid td{overflow-wrap:anywhere;word-break:normal}

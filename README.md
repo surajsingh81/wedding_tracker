@@ -93,9 +93,9 @@ motion; color contrast was checked in both light and dark themes.
 ## PDF reports
 
 Use **Export PDF** in the header (or **More** on mobile) to create a clean,
-print-ready report. On phones, choosing a report opens the system print dialog
-directly with a page-sized, readable layout; choose **Save as PDF** (or the
-equivalent option on your device) to save it. Available reports are:
+print-ready report. On phones, choosing a report opens a preview first. Tap
+**Print / Save as PDF** to open the device's print dialog, then choose
+**Save as PDF** (or the equivalent option on your device). Available reports are:
 
 - Overview — financial summary and hotel room-night status.
 - Room bookings — nightly pre-booked rooms and guest-detail completion.
